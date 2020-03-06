@@ -29,10 +29,12 @@ lastMonth.setUTCHours(-1);
 const lastDay = lastMonth.getUTCDate();
 
 let month = date.getUTCMonth() + 1;
-const year = date.getUTCFullYear();
+let year = date.getUTCFullYear();
 let hour = date.getUTCHours();
 let day = hour >= 12 ? date.getUTCDate() : date.getUTCDate() - 1;
 month = day === 0 ? month - 1 : month;
+year = month === 0 ? year - 1 : year;
+month = month === 0 ? 12 : month;
 month = month < 10 ? `0${month}` : month;
 day = day === 0 ? lastDay : day;
 day = day < 10 ? `0${day}` : day;
@@ -289,7 +291,7 @@ function listAllKeys() {
                           const request_time = time;
                           const aws_account_id = jsonObj.awsAccountId.trim();
                           const customer_id = jsonObj.customerId.trim();
-                          const event_description = jsonObj.eventDescription.trim();
+                          const event_description = `"${jsonObj.eventDescription.trim()}"`;
                           const event_timestamp = (jsonObj.eventTimestamp.length === 20) ? `${jsonObj.eventTimestamp.slice(0, 19)}.000${jsonObj.eventTimestamp.slice(19)}` : jsonObj.eventTimestamp;
                           const event_type = jsonObj.eventType.trim();
                           const origin_id = jsonObj.originId.trim();
