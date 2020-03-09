@@ -291,7 +291,7 @@ function listAllKeys() {
                           const request_time = time;
                           const aws_account_id = jsonObj.awsAccountId.trim();
                           const customer_id = jsonObj.customerId.trim();
-                          const event_description = `"${jsonObj.eventDescription.trim()}"`;
+                          const event_description = `"${jsonObj.eventDescription.trim().replace(/\"/g, "'")}"`;
                           const event_timestamp = (jsonObj.eventTimestamp.length === 20) ? `${jsonObj.eventTimestamp.slice(0, 19)}.000${jsonObj.eventTimestamp.slice(19)}` : jsonObj.eventTimestamp;
                           const event_type = jsonObj.eventType.trim();
                           const origin_id = jsonObj.originId.trim();
@@ -299,12 +299,12 @@ function listAllKeys() {
                           const session_id = jsonObj.sessionId.trim();
                           const session_type = jsonObj.sessionType.trim();
                           const beacon_info_beacon_http_response_code = ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconHttpResponseCode !== 'undefined') ? jsonObj.beaconInfo.beaconHttpResponseCode : '');
-                          const beacon_info_beacon_uri = ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? `"${jsonObj.beaconInfo.beaconUri.trim()}"` : '');
-                          const beacon_info_headers_0_name = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].name !== 'undefined') ? `"${jsonObj.beaconInfo.headers[0].name.trim()}"` : '');
-                          const beacon_info_headers_0_value = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].value !== 'undefined') ? `"${jsonObj.beaconInfo.headers[0].value.trim()}"` : '');
-                          const beacon_info_headers_1_name = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].name !== 'undefined') ? `"${jsonObj.beaconInfo.headers[1].name.trim()}"` : '');
-                          const beacon_info_headers_1_value = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].value !== 'undefined') ? `"${jsonObj.beaconInfo.headers[1].value.trim()}"` : '');
-                          const beacon_info_tracking_event = ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.trackingEvent !== 'undefined') ? `"${jsonObj.beaconInfo.trackingEvent.trim()}"` : '');
+                          const beacon_info_beacon_uri = ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? `"${jsonObj.beaconInfo.beaconUri.trim().replace(/\"/g, "'")}"` : '');
+                          const beacon_info_headers_0_name = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].name !== 'undefined') ? `"${jsonObj.beaconInfo.headers[0].name.trim().replace(/\"/g, "'")}"` : '');
+                          const beacon_info_headers_0_value = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].value !== 'undefined') ? `"${jsonObj.beaconInfo.headers[0].value.trim().replace(/\"/g, "'")}"` : '');
+                          const beacon_info_headers_1_name = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].name !== 'undefined') ? `"${jsonObj.beaconInfo.headers[1].name.trim().replace(/\"/g, "'")}"` : '');
+                          const beacon_info_headers_1_value = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].value !== 'undefined') ? `"${jsonObj.beaconInfo.headers[1].value.trim().replace(/\"/g, "'")}"` : '');
+                          const beacon_info_tracking_event = ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.trackingEvent !== 'undefined') ? `"${jsonObj.beaconInfo.trackingEvent.trim().replace(/\"/g, "'")}"` : '');
 
                           let vast_ad_ids = [];
                           let ad_systems = [];
