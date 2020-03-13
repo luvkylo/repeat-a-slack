@@ -18,6 +18,9 @@ let total = 0;
 let start = 0;
 let stop = 0;
 
+// the date below set the date for querying -> from 2 days ago to yesterday
+// this script should runs in 2 days interval
+// for every 2 days, it checks the data for the past two days
 const date = new Date();
 const firstDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
   date.getUTCDate() - 1, date.getUTCHours(), date.getUTCMinutes()));
