@@ -4,3 +4,5 @@ property_local.js
 .vscode
 .eslintrc.js
 .env
+manifest.json
+schema.sql
