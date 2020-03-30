@@ -3,3 +3,6 @@ property_local.js
 .DS_Store
 .vscode
 .eslintrc.js
+.env
+manifest.json
+schema.sql

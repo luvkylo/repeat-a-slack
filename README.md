@@ -7,26 +7,11 @@
 ### Data Flow
 1. Mediatailor events are logged into Cloudwatch
 2. Kinesis Firehouse log events from Cloudwatch to S3 every 15 minutes to the following location:
-```
-prd-cloudwatch-exported-logs/MediaTailor-AdDecisionServerInteractions/{Firehouse/year}/{month}/{day}/{hour}/my-delivery-stream-for-frequency-account-1-{year}-{month}-{day}-{hour}-{minute}-{second}-{randFileCode}
-```
-3. The log is then downloaded to Jenkins for data manipulation is re-upload to the following two locations as CSV and JSON:
-```
-prd-freq-report-data-fr/mediaTailor-quicksight-data-storage/mediaTailorData-{month}{day}{year}-{hour}.csv
-```
-```
-prd-freq-report-data-fr/mediaTailor-redshift-data-storage/mediaTailorData-{month}{day}{year}-{hour}{minute}.json
-```
-4. The data in JSON file is then copied to a Redshift Database in the following location using the COPY query command:
-```
-JCDB url: jdbc:redshift://qa-freq-reporting-warehouse-fr.ctxuplv22tg4.eu-central-1.redshift.amazonaws.com:5439/reporting
-Schema: Public
-Table Name: cwl_mediatailor_ad_decision_server_interactions
-```
-5. The data in CSV file is being read by QuickSight SPICE, and is load into the dataset (scheduled refresh hourly):
-```
-mediatailor_datasource
-```
+3. The log is then downloaded to Jenkins for data manipulation is re-upload to the following two locations as 
+4. The data in JSON file is then copied to a Redshift Database using the COPY query
+5. The data in CSV file is being read by QuickSight SPICE, and is load into the dataset (scheduled refresh hourly)
+Confluence link:
+https://docs.frequency.com/display/CO/MediaTailor+Cloudwatch+Data+to+Quicksight
 ------------------------------
 ### Github Reporsitory for QA
 ```
