@@ -104,8 +104,8 @@ function completeMultipartUpload(doneParams, table) {
 
         // Run Redshift query
         console.log('Running Redshift query...');
-        const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'MM/DD/YYYY\' REGION AS \'eu-central-1\';`;
-        // const copyCmd = `COPY tvaug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'MM/DD/YYYY\' REGION AS \'eu-central-1\';`;
+        // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'MM/DD/YYYY\' REGION AS \'eu-central-1\';`;
+        const copyCmd = `COPY tvaug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
         redshiftClient2.connect((connectErr) => {
           if (connectErr) reject(connectErr);
           else {
