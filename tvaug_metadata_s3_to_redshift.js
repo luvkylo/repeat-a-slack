@@ -208,7 +208,7 @@ function writeToFile(region, key) {
       reject(err);
     });
 
-    // stream wite to file locally
+    // stream write to file locally
     s3Stream.pipe(fileStream).on('error', (err) => {
     // capture any errors that occur when writing data to the file
       reject(new Error(`File Stream:${err}`));
@@ -288,7 +288,7 @@ function writeToFile(region, key) {
                   .replace('."",', '.",');
                 lineArr.push(l);
 
-                // if string gets too long, it signal an error has been occured
+                // if string gets too long, it signal an error has been occurred
                 // warn the user but will not stop program from continuing
                 if (objLine.length > 1000000 && tline.replace('{{', '{').replace(',,', ',') === ', {') {
                   console.log('Line got too big, something went wrong!');
@@ -386,7 +386,7 @@ function writeToFile(region, key) {
                     errWrite.write(`${objLine}\n\n`);
                     errWrite.write(`${jsonStr}\n\n`);
                     errWrite.write(`${lineArr.join('\n')}\n\n`);
-                    // however if too much error occured, throw an error
+                    // however if too much error occurred, throw an error
                     // and stop the process
                     if (errorCount >= 300) {
                       readLine.close();
@@ -431,7 +431,7 @@ function uploadFile(file) {
     splitFile.splitFileBySize(`${__dirname}/JSON/${file.replace(/"/g, '')}.json`, 2147483647)
       .then((names) => {
         // Once all data is settled, Read the JSON file and
-        // prepare its data to be split into parts for mulipart uploads
+        // prepare its data to be split into parts for multipart uploads
         console.log('All data is written to temporary JSON file(s)!');
 
         const buffers = {};
@@ -524,7 +524,7 @@ function uploadFile(file) {
                 body = buffer.slice(start, end);
               }
 
-              // Else change the start and end byte to accomadate moving to a new buffer
+              // Else change the start and end byte to accommodate moving to a new buffer
             } else {
               start = rangeStart - (2147483647 * (bufferObj.num - 1));
               const rangeEnd = end - (2147483647 * (bufferObj.num - 1));
