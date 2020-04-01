@@ -45,7 +45,7 @@ const ti = ['"events"', '"channels"', '"contents"', '"credits"', '"genres"', '"p
 const startTime = new Date();
 let partNum = 0;
 const partSize = 1024 * 1024 * 50;
-// 50 represent 50 MB, the AWS recommand file size to be used in multipart upload
+// 50 represent 50 MB, the AWS recommends file size to be used in multipart upload
 const maxUploadTries = 5;
 let multipartMap = {
   Parts: [],
@@ -85,7 +85,7 @@ console.log(`Looking into the bucket prefix: ${bucketParams.Prefix}`);
 
 const errWrite = fs.createWriteStream(path.join(__dirname, 'JSON', 'error.json'), { flags: 'w' });
 
-// Function for completeing multipart upload
+// Function for completing multipart upload
 function completeMultipartUpload(doneParams, table) {
   // S3 call
   return new Promise((resolve, reject) => {
