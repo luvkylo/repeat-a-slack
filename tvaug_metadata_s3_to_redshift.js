@@ -612,7 +612,7 @@ async function listAllKeys() {
         // if there are more objects
         if (listData.IsTruncated) {
           bucketParams.ContinuationToken = listData.NextContinuationToken;
-          listAllKeys();
+          await listAllKeys();
         } else if (arr.length === 0) {
           // if cant find any objects
           console.log('No file on this day');
@@ -621,9 +621,8 @@ async function listAllKeys() {
           // if found all objects
           arr.forEach((ele) => {
             currentGz.push(ele.Key);
-            const region = ele.Key.split('_').slice(-1).pop();
             // get the object region
-            regionObj[ele.Key] = region;
+            regionObj[ele.Key] = ele.Key.split('_').slice(-1).pop();
           });
           console.log(currentGz);
 
