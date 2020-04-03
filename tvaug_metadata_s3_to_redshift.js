@@ -1,7 +1,6 @@
 require('dotenv').config();
 
 const AWS = require('aws-sdk');
-// let property = require("./property_local");
 const Redshift = require('node-redshift');
 const fs = require('fs');
 const path = require('path');
@@ -11,6 +10,7 @@ const readLine = require('readline');
 const countLinesInFile = require('count-lines-in-file');
 const changeCase = require('change-case');
 const mergeFiles = require('merge-files');
+// const property = require('./property_local');
 const property = require('./property');
 const tiObj = require('./LGI_field.js');
 
@@ -60,6 +60,8 @@ let retry = {};
 const seriesCheckArr = ['production_date', 'year_of_production_start', 'season_number', 'year_of_production_end', 'number_of_episodes'];
 const titlesCheckArr = ['episode_number', 'minimum_age', 'duration_in_seconds', 'duration_in_seconds_ref', 'production_date', 'streaming_popularity_week', 'streaming_popularity_month', 'streaming_popularity_day'];
 
+let redshiftConnected = false;
+
 // const getParams = {
 //   Bucket: property.aws.fromBucketName,
 //   Key: `${property.aws.prefix}2020_3_9_ch`,
@@ -100,26 +102,37 @@ function completeMultipartUpload(doneParams, table) {
         console.log('Completed upload in', delta, 'seconds');
         console.log('Final upload data:', data);
 
-        resolve(data);
-
         // Run Redshift query
         console.log('Running Redshift query...');
-        // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'MM/DD/YYYY\' REGION AS \'eu-central-1\';`;
+        // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
         const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
-        redshiftClient2.connect((connectErr) => {
-          if (connectErr) reject(connectErr);
-          else {
-            console.log('Connected to Redshift!');
-            redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
-              if (queryErr) reject(queryErr);
-              else {
-                console.log(migrateData);
-                console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
-                redshiftClient2.close();
-              }
-            });
-          }
-        });
+
+        if (!redshiftConnected) {
+          redshiftConnected = true;
+          redshiftClient2.connect((connectErr) => {
+            if (connectErr) reject(connectErr);
+            else {
+              console.log('Connected to Redshift!');
+              redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
+                if (queryErr) reject(queryErr);
+                else {
+                  console.log(migrateData);
+                  console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
+                  resolve(data);
+                }
+              });
+            }
+          });
+        } else {
+          redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
+            if (queryErr) reject(queryErr);
+            else {
+              console.log(migrateData);
+              console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
+              resolve(data);
+            }
+          });
+        }
       }
     });
   });
@@ -690,6 +703,8 @@ async function listAllKeys() {
               throw new Error(fileErr);
             }
           });
+
+          redshiftClient2.close();
         }
       }
     });
