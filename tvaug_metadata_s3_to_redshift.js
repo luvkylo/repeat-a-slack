@@ -60,8 +60,6 @@ let retry = {};
 const seriesCheckArr = ['production_date', 'year_of_production_start', 'season_number', 'year_of_production_end', 'number_of_episodes'];
 const titlesCheckArr = ['episode_number', 'minimum_age', 'duration_in_seconds', 'duration_in_seconds_ref', 'production_date', 'streaming_popularity_week', 'streaming_popularity_month', 'streaming_popularity_day'];
 
-let redshiftConnected = false;
-
 // const getParams = {
 //   Bucket: property.aws.fromBucketName,
 //   Key: `${property.aws.prefix}2020_3_9_ch`,
@@ -88,7 +86,7 @@ console.log(`Looking into the bucket prefix: ${bucketParams.Prefix}`);
 const errWrite = fs.createWriteStream(path.join(__dirname, 'JSON', 'error.json'), { flags: 'w' });
 
 // Function for completing multipart upload
-function completeMultipartUpload(doneParams, table) {
+function completeMultipartUpload(doneParams) {
   // S3 call
   return new Promise((resolve, reject) => {
     // when completed multipart upload
@@ -101,38 +99,7 @@ function completeMultipartUpload(doneParams, table) {
         const delta = (new Date() - startTime) / 1000;
         console.log('Completed upload in', delta, 'seconds');
         console.log('Final upload data:', data);
-
-        // Run Redshift query
-        console.log('Running Redshift query...');
-        // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
-        const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
-
-        if (!redshiftConnected) {
-          redshiftConnected = true;
-          redshiftClient2.connect((connectErr) => {
-            if (connectErr) reject(connectErr);
-            else {
-              console.log('Connected to Redshift!');
-              redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
-                if (queryErr) reject(queryErr);
-                else {
-                  console.log(migrateData);
-                  console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
-                  resolve(data);
-                }
-              });
-            }
-          });
-        } else {
-          redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
-            if (queryErr) reject(queryErr);
-            else {
-              console.log(migrateData);
-              console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
-              resolve(data);
-            }
-          });
-        }
+        resolve(data);
       }
     });
   });
@@ -141,8 +108,6 @@ function completeMultipartUpload(doneParams, table) {
 // Function to upload parts
 function uploadPart(multipart, partParams, file, tryNum = 1) {
   return new Promise((resolve, reject) => {
-    // set retry flag for this particular part to 1
-    retry[partParams.PartNumber] = 1;
     // S3 call
     s3.uploadPart(partParams, async (multiErr, mData) => {
       // If encounter error, retry for 5 times
@@ -190,7 +155,7 @@ function uploadPart(multipart, partParams, file, tryNum = 1) {
           // When all parts are uploaded
           console.log('Completing upload...');
           try {
-            const completedMulti = await completeMultipartUpload(doneParams, file);
+            const completedMulti = await completeMultipartUpload(doneParams);
             resolve(completedMulti.Location);
           } catch (error) {
             reject(error);
@@ -574,6 +539,8 @@ function uploadFile(file) {
             // Send a single part
             console.log('Uploading part: #', partParams.PartNumber, ', Range start:', rangeStart);
             partObj[partParams.PartNumber] = '';
+            // set retry flag for this particular part to 1
+            retry[partParams.PartNumber] = 1;
             promises.push(new Promise(async (resolve, reject) => {
               try {
                 const msg = await uploadPart(multipart, partParams, file.replace(/"/g, ''));
@@ -692,19 +659,43 @@ async function listAllKeys() {
             }
           }
 
-          console.log('Removing temporary file...');
+          // Run Redshift query
+          redshiftClient2.connect((connectErr) => {
+            if (connectErr) throw new Error(connectErr);
+            else {
+              console.log('Connected to Redshift!');
+              console.log('Running Redshift queries...');
 
-          // Remove the temporary file
-          nameArr.forEach((namePath) => {
-            try {
-              fs.unlinkSync(namePath);
-              console.log(`File removed: ${namePath}`);
-            } catch (fileErr) {
-              throw new Error(fileErr);
+              for (let x = 0; x < ti.length; x += 1) {
+                const table = ti[x].replace(/"/g, '');
+
+                // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+
+                redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
+                  if (queryErr) throw new Error(queryErr);
+                  else {
+                    console.log(migrateData);
+                    console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
+                    if (x === (ti.length - 1)) {
+                      redshiftClient2.close();
+                      console.log('Removing temporary file...');
+
+                      // Remove the temporary file
+                      nameArr.forEach((namePath) => {
+                        try {
+                          fs.unlinkSync(namePath);
+                          console.log(`File removed: ${namePath}`);
+                        } catch (fileErr) {
+                          throw new Error(fileErr);
+                        }
+                      });
+                    }
+                  }
+                });
+              }
             }
           });
-
-          redshiftClient2.close();
         }
       }
     });
