@@ -69,7 +69,7 @@ const titlesCheckArr = ['episode_number', 'minimum_age', 'duration_in_seconds', 
 const bucketParams = {
   Bucket: property.aws.fromBucketName,
   Delimiter: '',
-  Prefix: `${property.aws.prefix}${year}_${month}_${day}`,
+  Prefix: `${property.aws.prefix}${year}_${month}_${day}_`,
 };
 
 const getParams = {
@@ -307,10 +307,10 @@ function writeToFile(region, key) {
                             parse[changeCase.snakeCase(tempEle)] = parse[changeCase.snakeCase(ele)];
                             break;
                           }
-                          if (pos === ele.length) {
-                            errWrite.write(`${ele}\n\n`);
-                            console.log(`\n${ele}`);
-                          }
+                          // if (pos === ele.length) {
+                          //   errWrite.write(`${ele}\n\n`);
+                          //   console.log(`\n${ele}`);
+                          // }
                         }
                         delete parse[changeCase.snakeCase(ele)];
                       }
