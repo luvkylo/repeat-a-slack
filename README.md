@@ -81,6 +81,6 @@ https://docs.frequency.com/display/CO/TV_Aug+Metadata+%28LGI%29+From+S3+to+Redsh
 ```
 https://github.com/frequency/frequency-data-analyze/tree/LGI_metadata_dev
 ```
-The scripts are run in 24 hours interval
+The scripts are run in weekly on Monday 1AM UTC.
 
 ## Fastly
