@@ -61,19 +61,19 @@ const seriesCheckArr = ['production_date', 'year_of_production_start', 'season_n
 const titlesCheckArr = ['episode_number', 'minimum_age', 'duration_in_seconds', 'duration_in_seconds_ref', 'production_date', 'streaming_popularity_week', 'streaming_popularity_month', 'streaming_popularity_day'];
 
 // const getParams = {
-//   Bucket: property.aws.fromBucketName,
-//   Key: `${property.aws.prefix}2020_3_9_ch`,
+//   Bucket: property.aws.tvaugFromBucketName,
+//   Key: `${property.aws.tvaugPrefix}2020_3_9_ch`,
 // };
 
 // Params for calls
 const bucketParams = {
-  Bucket: property.aws.fromBucketName,
+  Bucket: property.aws.tvaugFromBucketName,
   Delimiter: '',
-  Prefix: `${property.aws.prefix}${year}_${month}_${day}_`,
+  Prefix: `${property.aws.tvaugPrefix}${year}_${month}_${day}_`,
 };
 
 const getParams = {
-  Bucket: property.aws.fromBucketName,
+  Bucket: property.aws.tvaugFromBucketName,
 };
 
 const multiPartParams = {
@@ -114,6 +114,7 @@ function uploadPart(multipart, partParams, file, tryNum = 1) {
       if (multiErr) {
         console.log('multiErr, upload part error:', multiErr);
         if (tryNum < maxUploadTries) {
+          console.log(partParams.PartNumber, retry[partParams.PartNumber], tryNum);
           if (retry[partParams.PartNumber] === tryNum) {
             console.log('Retrying upload of part: #', `${partParams.PartNumber} for the ${tryNum + 1} times`);
             retry[partParams.PartNumber] += 1;
@@ -147,7 +148,7 @@ function uploadPart(multipart, partParams, file, tryNum = 1) {
           finalPartDone = true;
           const doneParams = {
             Bucket: property.aws.toBucketName,
-            Key: `${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${file}.json`,
+            Key: `${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${file}.json`,
             MultipartUpload: multipartMap,
             UploadId: multipart.UploadId,
           };
@@ -284,6 +285,7 @@ function writeToFile(region, key) {
                   let jsonStr = objLine.trim().replace('null', '').replace('faalse', 'false').replace('::', ':');
                   jsonStr = jsonStr.replace(',,', ',').replace('": 00,', '": 0,');
                   jsonStr = jsonStr.replace('ffalse', 'false').replace('fallse', 'false').replace('falsse', 'false').replace('falsee', 'false');
+                  jsonStr = jsonStr.replace('ttrue', 'true').replace('trrue', 'true').replace('truue', 'true').replace('truee', 'true');
                   jsonStr = jsonStr.substring(jsonStr.indexOf('{'));
                   let parse = '';
                   let temp = '';
@@ -461,7 +463,7 @@ function uploadFile(file) {
         console.log('Creating multipart upload for:', `${file.replace(/"/g, '')}.json`);
 
         // S3 call to get a multipart upload ID
-        multiPartParams.Key = `${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${file.replace(/"/g, '')}.json`;
+        multiPartParams.Key = `${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${file.replace(/"/g, '')}.json`;
         s3.createMultipartUpload(multiPartParams, async (mpErr, multipart) => {
           if (mpErr) { rej(new Error(mpErr)); }
           console.log('Got upload ID', multipart.UploadId);
@@ -532,7 +534,7 @@ function uploadFile(file) {
             const partParams = {
               Body: body,
               Bucket: property.aws.toBucketName,
-              Key: `${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${file.replace(/"/g, '')}.json`,
+              Key: `${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${file.replace(/"/g, '')}.json`,
               PartNumber: String(partNum),
               UploadId: multipart.UploadId,
             };
@@ -669,8 +671,8 @@ async function listAllKeys() {
               for (let x = 0; x < ti.length; x += 1) {
                 const table = ti[x].replace(/"/g, '');
 
-                // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
-                const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
 
                 redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
                   if (queryErr) throw new Error(queryErr);
