@@ -10,8 +10,8 @@ const readLine = require('readline');
 const countLinesInFile = require('count-lines-in-file');
 const changeCase = require('change-case');
 const mergeFiles = require('merge-files');
-// const property = require('./property_local');
-const property = require('./property');
+const property = require('./property_local');
+// const property = require('./property');
 const tiObj = require('./LGI_field.js');
 
 // Config AWS connection
@@ -105,10 +105,12 @@ function completeMultipartUpload(doneParams) {
             resolve(data);
           }
         } catch (error) {
+          console.log(`Error: ${error}`);
           reject(new Error(error));
         }
       });
     } catch (err) {
+      console.log(`Error: ${err}`);
       reject(new Error(err));
     }
   });
@@ -131,7 +133,10 @@ function uploadPart(multipart, partParams, file, tryNum = 1) {
                 retry[partParams.PartNumber] += 1;
                 // call the function again to retry the upload
                 const res = await uploadPart(multipart, partParams, file, tryNum + 1)
-                  .catch((e) => reject(new Error(e)));
+                  .catch((e) => {
+                    console.log(`Error: ${e}`);
+                    reject(new Error(e));
+                  });
                 resolve(res);
               } else {
                 // if already trying, warn user its already retrying
@@ -169,18 +174,24 @@ function uploadPart(multipart, partParams, file, tryNum = 1) {
               console.log('Completing upload...');
               try {
                 const completedMulti = await completeMultipartUpload(doneParams)
-                  .catch((e) => reject(new Error(e)));
+                  .catch((e) => {
+                    console.log(`Error: ${e}`);
+                    reject(new Error(e));
+                  });
                 resolve(completedMulti.Location);
               } catch (error) {
+                console.log(`Error: ${error}`);
                 reject(error);
               }
             }
           }
         } catch (err) {
+          console.log(`Error: ${err}`);
           reject(new Error(err));
         }
       });
     } catch (err) {
+      console.log(`Error: ${err}`);
       reject(new Error(err));
     }
   });
@@ -269,7 +280,7 @@ function writeToFile(region, key) {
                   } else {
                     // else do error checking and transformation to make sure
                     // the data is clean enough to be parsed
-                    const match = tline.match(/""[A-Za-z0-9àâçéèêëîïôûùüÿñæœ]|[A-Za-z0-9àâçéèêëîïôûùüÿñæœ]""/g);
+                    const match = tline.match(/""[A-Za-z0-9àâçéèêëîïôûùüÿñæœ ]|[A-Za-z0-9àâçéèêëîïôûùüÿñæœ ]""/g);
                     if (match) {
                       match.forEach((m) => {
                         const reg = new RegExp(m, 'g');
@@ -390,12 +401,13 @@ function writeToFile(region, key) {
                         errWrite.write(`${lineArr.join('\n')}\n\n`);
                         // however if too much error occurred, throw an error
                         // and stop the process
-                        if (errorCount === 300) {
+                        if (errorCount === 10) {
                           errorFlag = true;
                           rl.close();
                           rl.removeAllListeners();
                           jsonStream.destroy();
                           jsonStream.on('close', () => {
+                            console.log('Error: Too much error');
                             reject(new Error('Too much error'));
                           });
                         }
@@ -430,6 +442,7 @@ function writeToFile(region, key) {
         });
       });
     } catch (err) {
+      console.log(`Error: ${err}`);
       reject(new Error(err));
     }
   });
@@ -580,6 +593,7 @@ function uploadFile(file) {
                   console.log(msg);
                   resolve(msg);
                 } catch (error) {
+                  console.log(`Error: ${error}`);
                   reject(new Error(error));
                 }
               }));
@@ -602,14 +616,17 @@ function uploadFile(file) {
               })
               .catch((promisesErr) => {
               // throw error
+                console.log(`Error: ${promisesErr}`);
                 rej(new Error(promisesErr));
               });
           });
         })
         .catch((err) => {
+          console.log(`Error: ${err}`);
           rej(new Error(err));
         });
     } catch (err) {
+      console.log(`Error: ${err}`);
       rej(new Error(err));
     }
   });
@@ -629,7 +646,10 @@ async function listAllKeys() {
           // if there are more objects
           if (listData.IsTruncated) {
             bucketParams.ContinuationToken = listData.NextContinuationToken;
-            await listAllKeys().catch((e) => { throw new Error(e); });
+            await listAllKeys().catch((e) => {
+              console.log(`Error: ${e}`);
+              throw new Error(e);
+            });
           } else if (arr.length === 0) {
           // if cant find any objects
             console.log('No file on this day');
@@ -651,8 +671,12 @@ async function listAllKeys() {
                 const region = regionObj[key];
                 // Add promise to the array
                 try {
-                  await writeToFile(region, key).catch((e) => { throw new Error(e); });
+                  await writeToFile(region, key).catch((e) => {
+                    console.log(`Error: ${e}`);
+                    throw new Error(e);
+                  });
                 } catch (error) {
+                  console.log(`Error: ${error}`);
                   throw new Error(error);
                 }
               }
@@ -673,13 +697,17 @@ async function listAllKeys() {
               // merge first level object JSON with
               // different regions into one first level object JSON
               try {
-                await mergeFiles(inputFileArr, outputFile).catch((e) => { throw new Error(e); });
+                await mergeFiles(inputFileArr, outputFile).catch((e) => {
+                  console.log(`Error: ${e}`);
+                  throw new Error(e);
+                });
                 inputFileArr.forEach((tempPath) => {
                   try {
                   // remove all region files for this first level object
                     fs.unlinkSync(tempPath);
                     console.log(`removed ${tempPath}`);
                   } catch (fileErr) {
+                    console.log(`Error: ${fileErr}`);
                     throw new Error(fileErr);
                   }
                 });
@@ -688,7 +716,10 @@ async function listAllKeys() {
 
                 // upload the first level object JSON to s3
                 nameArr.push(outputFile);
-                const done = await uploadFile(file).catch((e) => { throw new Error(e); });
+                const done = await uploadFile(file).catch((e) => {
+                  console.log(`Error: ${e}`);
+                  throw new Error(e);
+                });
                 console.log(done);
                 // Run Redshift query
                 redshiftClient2.connect((connectErr) => {
@@ -700,8 +731,8 @@ async function listAllKeys() {
                     for (let x = 0; x < ti.length; x += 1) {
                       const table = ti[x].replace(/"/g, '');
 
-                      // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
-                      const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                      const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                      // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
 
                       redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
                         if (queryErr) throw new Error(queryErr);
@@ -718,6 +749,7 @@ async function listAllKeys() {
                                 fs.unlinkSync(namePath);
                                 console.log(`File removed: ${namePath}`);
                               } catch (fileErr) {
+                                console.log(`Error: ${fileErr}`);
                                 throw new Error(fileErr);
                               }
                             });
@@ -728,20 +760,24 @@ async function listAllKeys() {
                   }
                 });
               } catch (error) {
+                console.log(`Error: ${error}`);
                 throw new Error(error);
               }
             }
           }
         } catch (err) {
+          console.log(`Error: ${err}`);
           throw new Error(err);
         }
       }
     });
   } catch (error) {
+    console.log(`Error: ${error}`);
     throw new Error(error);
   }
 }
 
 listAllKeys().catch((err) => {
+  console.log(`Error: ${err}`);
   throw new Error(err);
 });
