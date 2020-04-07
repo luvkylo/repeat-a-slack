@@ -10,8 +10,8 @@ const readLine = require('readline');
 const countLinesInFile = require('count-lines-in-file');
 const changeCase = require('change-case');
 const mergeFiles = require('merge-files');
-const property = require('./property_local');
-// const property = require('./property');
+// const property = require('./property_local');
+const property = require('./property');
 const tiObj = require('./LGI_field.js');
 
 // Config AWS connection
@@ -671,8 +671,8 @@ async function listAllKeys() {
               for (let x = 0; x < ti.length; x += 1) {
                 const table = ti[x].replace(/"/g, '');
 
-                const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
-                // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
 
                 redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
                   if (queryErr) throw new Error(queryErr);
