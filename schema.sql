@@ -19,3 +19,32 @@ message1                                    VARCHAR(65535),
 message2                                    VARCHAR(65535),
 message3                                    VARCHAR(65535),
 message4                                    VARCHAR(65535) 
+
+CREATE TABLE IF NOT EXIST tv_aug_kpi_results (
+    start_time              DATE,
+    end_time                DATE,
+    query_date              DATE,
+    type                    VARCHAR,
+    crid                    VARCHAR,
+    adult                   BOOLEAN,
+    title_name              VARCHAR,
+    description             VARCHAR(65535),
+    episode_number          INTEGER,
+    season_number           INTEGER,
+    series_name             VARCHAR,
+    region                  VARCHAR,
+    is_on_demand            BOOLEAN,
+    hits                    BIGINT,
+    api_request_number      BIGINT,
+    video_results           VARCHAR(65535)
+);
+
+CREATE TABLE IF NOT EXIST tv_aug_content_provider_results (
+    start_time              DATE,
+    end_time                DATE,
+    query_date              DATE,
+    region                  VARCHAR,
+    total_hits              BIGINT,
+    content_provider        VARCHAR,
+    crid_counts             BIGINT
+);
