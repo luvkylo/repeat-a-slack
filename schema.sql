@@ -48,3 +48,11 @@ CREATE TABLE IF NOT EXIST tv_aug_content_provider_results (
     content_provider        VARCHAR,
     crid_counts             BIGINT
 );
+
+CREATE TABLE IF NOT EXIST cwl_mediatailor_fillrate (
+    query_date              TIMESTAMP,
+    origin_id               VARCHAR,
+    filled_duration_sum     BIGINT,
+    origin_avail_duration_sum        BIGINT,
+    num_ads_sum             BIGINT
+);
