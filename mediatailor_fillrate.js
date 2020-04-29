@@ -2,7 +2,8 @@ require('dotenv').config();
 
 const AWS = require('aws-sdk');
 const Redshift = require('node-redshift');
-const property = require('./property_local');
+// const property = require('./property_local');
+const property = require('./property');
 
 AWS.config.update({ region: 'us-west-2' });
 

@@ -10,8 +10,8 @@ const readLine = require('readline');
 const countLinesInFile = require('count-lines-in-file');
 const changeCase = require('change-case');
 const mergeFiles = require('merge-files');
-const property = require('./property_local');
-// const property = require('./property');
+// const property = require('./property_local');
+const property = require('./property');
 const tiObj = require('./LGI_field.js');
 
 // Config AWS connection
