@@ -46,13 +46,23 @@ function statusFunc(queryId) {
     setTimeout(() => {
       // check cloudwatch query status
       cloudwatchlogs.describeQueries(statusParams, async (err, statusData) => {
-        if (err) reject(new Error(err));
-        else {
+        if (err) {
+          console.log(err);
+          reject(new Error(err));
+        } else {
           const arr = statusData.queries.filter((q) => (q.queryId === queryId));
           // if status is running, run the function again
           if (arr.length > 0) {
-            const status = await statusFunc(queryId);
-            resolve(status);
+            try {
+              const status = await statusFunc(queryId).catch((e) => {
+                console.log(e);
+                reject(e);
+              });
+              resolve(status);
+            } catch (e) {
+              console.log(e);
+              reject(e);
+            }
           // else, get the query result
           } else {
             const resultParams = {
@@ -60,8 +70,10 @@ function statusFunc(queryId) {
             };
 
             cloudwatchlogs.getQueryResults(resultParams, (resultErr, resultData) => {
-              if (resultErr) console.log(resultErr, resultErr.stack); // an error occurred
-              else if (resultData.statistics.recordsMatched > 10000) {
+              if (resultErr) {
+                console.log(resultErr, resultErr.stack); // an error occurred
+                reject(new Error(resultErr));
+              } else if (resultData.statistics.recordsMatched > 10000) {
                 console.log(resultData.statistics.recordsMatched);
                 resolve('Too much record');
               } else {
@@ -80,10 +92,15 @@ function statusFunc(queryId) {
 function query(queryParams) {
   return new Promise((resolve, reject) => {
     cloudwatchlogs.startQuery(queryParams, async (err, data) => {
-      if (err) reject(new Error(err, err.stack));
-      else {
+      if (err) {
+        console.log(err);
+        reject(new Error(err, err.stack));
+      } else {
         // wait for query to complete
-        const status = await statusFunc(data.queryId);
+        const status = await statusFunc(data.queryId).catch((e) => {
+          console.log(e);
+          reject(e);
+        });
         resolve(status);
       }
     });
@@ -130,13 +147,19 @@ function cloudwatch() {
 
       // start query
       try {
-        let queryWait = await query(queryParams);
+        let queryWait = await query(queryParams).catch((e) => {
+          console.log(e);
+          reject(e);
+        });
         while (queryWait === 'Too much record') {
           // if too much log stream, cut query interval by half
           console.log(queryWait);
           stop = (start + ((start - stop) / 2)) - 1;
           queryParams.endTime = stop;
-          queryWait = await query(queryParams);
+          queryWait = await query(queryParams).catch((e) => {
+            console.log(e);
+            reject(e);
+          });
           progress.increment(((start - stop) / 2) / 60000);
           progressDate += ((start - stop) / 2);
         }
@@ -145,6 +168,7 @@ function cloudwatch() {
         progressDate += 60000;
         progress.increment();
       } catch (err) {
+        console.log(err);
         reject(new Error(err));
       }
     }
@@ -156,17 +180,25 @@ function cloudwatch() {
 
 async function main() {
   try {
-    await cloudwatch();
+    console.log('starting!');
+    await cloudwatch().catch((e) => {
+      console.log(e);
+      throw new Error(e);
+    });
 
     // query redshift records for number of records
     const selectCmd = `SELECT count(*) FROM cwl_mediatailor_ad_decision_server_interactions WHERE event_timestamp BETWEEN \'${secondYear}-${secondMonth}-${secondDay} 00:00:00\' AND \'${firstYear}-${firstMonth}-${firstDay} 23:59:59\';`;
     redshiftClient2.connect((connectErr) => {
-      if (connectErr) throw new Error(connectErr);
-      else {
+      if (connectErr) {
+        console.log(connectErr);
+        throw new Error(connectErr);
+      } else {
         console.log('Connected to Redshift!');
         redshiftClient2.query(selectCmd, (queryErr, migrateData) => {
-          if (queryErr) throw new Error(queryErr);
-          else {
+          if (queryErr) {
+            console.log(queryErr);
+            throw new Error(queryErr);
+          } else {
             console.log(migrateData.rows[0].count);
 
             // if number of records matches cloudwatch query record count
@@ -184,6 +216,7 @@ async function main() {
       }
     });
   } catch (err) {
+    console.log(err);
     throw new Error(err);
   }
 }
@@ -191,5 +224,6 @@ async function main() {
 try {
   main();
 } catch (error) {
+  console.log(error);
   throw new Error(error);
 }
