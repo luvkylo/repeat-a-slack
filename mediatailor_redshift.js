@@ -427,6 +427,24 @@ function listAllKeys() {
                                   }
                                 });
 
+                                let beacon_info_headers_0_name = '';
+                                let beacon_info_headers_0_value = '';
+                                let beacon_info_headers_1_name = '';
+                                let beacon_info_headers_1_value = '';
+                                if (jsonObj.beaconInfo && jsonObj.beaconInfo.headers) {
+                                  jsonObj.beaconInfo.headers.forEach((header) => {
+                                    if (header.name) {
+                                      if (header.name === 'User-Agent') {
+                                        beacon_info_headers_0_name = `"${header.name.trim().replace(/\"/g, "'")}"`;
+                                        beacon_info_headers_0_value = `"${header.value.trim().replace(/\"/g, "'")}"`;
+                                      } else if (header.name === 'X-Forwarded-For') {
+                                        beacon_info_headers_1_name = `"${header.name.trim().replace(/\"/g, "'")}"`;
+                                        beacon_info_headers_1_value = `"${header.value.trim().replace(/\"/g, "'")}"`;
+                                      }
+                                    }
+                                  });
+                                }
+
                                 // Create an object to be transform into JSON
                                 logObj = {
                                   request_time: time,
@@ -441,10 +459,10 @@ function listAllKeys() {
                                   session_type: jsonObj.sessionType,
                                   beacon_info_beacon_http_response_code: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconHttpResponseCode !== 'undefined') ? jsonObj.beaconInfo.beaconHttpResponseCode : ''),
                                   beacon_info_beacon_uri: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? jsonObj.beaconInfo.beaconUri : ''),
-                                  beacon_info_headers_0_name: ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].name !== 'undefined') ? jsonObj.beaconInfo.headers[0].name : ''),
-                                  beacon_info_headers_0_value: ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].value !== 'undefined') ? jsonObj.beaconInfo.headers[0].value : ''),
-                                  beacon_info_headers_1_name: ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].name !== 'undefined') ? jsonObj.beaconInfo.headers[1].name : ''),
-                                  beacon_info_headers_1_value: ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].value !== 'undefined') ? jsonObj.beaconInfo.headers[1].value : ''),
+                                  beacon_info_headers_0_name,
+                                  beacon_info_headers_0_value,
+                                  beacon_info_headers_1_name,
+                                  beacon_info_headers_1_value,
                                   beacon_info_tracking_event: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.trackingEvent !== 'undefined') ? jsonObj.beaconInfo.trackingEvent : ''),
                                   message1,
                                   message2,
