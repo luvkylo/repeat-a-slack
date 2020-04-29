@@ -48,7 +48,7 @@ const fileKey = fileName;
 const startTime = new Date();
 let partNum = 0;
 const partSize = 1024 * 1024 * 50;
-// 50 represent 50 MB, the AWS recommand file size to be used in multipart upload
+// 50 represent 50 MB, the AWS recommends file size to be used in multipart upload
 const maxUploadTries = 3;
 const multipartMap = {
   Parts: [],
@@ -80,7 +80,7 @@ const multiPartParams = {
 
 console.log(`Looking into the bucket prefix: ${bucketParams.Prefix}`);
 
-// Function for completeing multipart upload
+// Function for completing multipart upload
 function completeMultipartUpload(doneParams) {
   try {
   // S3 call
