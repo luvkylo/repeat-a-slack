@@ -122,59 +122,66 @@ function cloudwatch() {
       limit: 10000,
       logGroupName: 'MediaTailor/AdDecisionServerInteractions',
     };
+    console.log(startDate, endDate);
+    console.log(queryParams);
 
     // Create Cloudatch connection
-    cloudwatchlogs = new AWS.CloudWatchLogs();
-    const str = '[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}';
-    const progress = new cliProgress.SingleBar({ format: str });
-    progress.start((endDate - startDate + 1) / 60000, 0);
+    try {
+      cloudwatchlogs = new AWS.CloudWatchLogs();
+      const str = '[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}';
+      const progress = new cliProgress.SingleBar({ format: str });
+      progress.start((endDate - startDate + 1) / 60000, 0);
 
-    // while start date is less than end date
-    while (progressDate < endDate) {
+      // while start date is less than end date
+      while (progressDate < endDate) {
       // start time increment is more than end date
-      if ((progressDate + 60000) >= endDate) {
+        if ((progressDate + 60000) >= endDate) {
         // set end time equals to end date
-        start = progressDate;
-        stop = endDate;
+          start = progressDate;
+          stop = endDate;
         // else increment end time by (60 seconds - 1 millisecond)
-      } else {
-        start = progressDate;
-        stop = progressDate + 59999;
-      }
+        } else {
+          start = progressDate;
+          stop = progressDate + 59999;
+        }
 
-      queryParams.startTime = start;
-      queryParams.endTime = stop;
+        queryParams.startTime = start;
+        queryParams.endTime = stop;
 
-      // start query
-      try {
-        let queryWait = await query(queryParams).catch((e) => {
-          console.log(e);
-          reject(e);
-        });
-        while (queryWait === 'Too much record') {
-          // if too much log stream, cut query interval by half
-          console.log(queryWait);
-          stop = (start + ((start - stop) / 2)) - 1;
-          queryParams.endTime = stop;
-          queryWait = await query(queryParams).catch((e) => {
+        // start query
+        try {
+          let queryWait = await query(queryParams).catch((e) => {
             console.log(e);
             reject(e);
           });
-          progress.increment(((start - stop) / 2) / 60000);
-          progressDate += ((start - stop) / 2);
-        }
+          while (queryWait === 'Too much record') {
+          // if too much log stream, cut query interval by half
+            console.log(queryWait);
+            stop = (start + ((start - stop) / 2)) - 1;
+            queryParams.endTime = stop;
+            queryWait = await query(queryParams).catch((e) => {
+              console.log(e);
+              reject(e);
+            });
+            progress.increment(((start - stop) / 2) / 60000);
+            progressDate += ((start - stop) / 2);
+          }
 
-        // increase start time by 60 seconds
-        progressDate += 60000;
-        progress.increment();
-      } catch (err) {
-        console.log(err);
-        reject(new Error(err));
+          // increase start time by 60 seconds
+          progressDate += 60000;
+          progress.increment();
+        } catch (err) {
+          console.log(err);
+          reject(new Error(err));
+        }
       }
+      // stop progress bar
+      progress.stop();
+      resolve('Done');
+    } catch (e) {
+      console.log(e);
+      reject(e);
     }
-    // stop progress bar
-    progress.stop();
-    resolve('Done');
   });
 }
 
