@@ -156,48 +156,54 @@ async function main() {
       console.log(e);
       throw e;
     });
-    // for each row in the result, extract the data
-    result.forEach((row) => {
-      let day = ''; let origin_id = ''; let filled_duration_sum = ''; let origin_avail_duration_sum = ''; let
-        num_ads_sum = '';
-      row.forEach((ele) => {
-        if (ele.field === 'bin(1d)') {
-          const [d, time] = ele.value.split(' ');
-          // this is dilebrate because eslint has the array deconstructing warning
-          day = time;
-          day = d.split('-').join('');
-        } else if (ele.field === 'originId') {
-          origin_id = ele.value;
-        } else if (ele.field === 'SUM(avail.filledDuration)') {
-          filled_duration_sum = ele.value;
-        } else if (ele.field === 'SUM(avail.originAvailDuration)') {
-          origin_avail_duration_sum = ele.value;
-        } else if (ele.field === 'SUM(avail.numAds)') {
-          num_ads_sum = ele.value;
-        }
-      });
-      // append it into the redshift query string
-      const tempArr = `('${day}','${origin_id}',${filled_duration_sum},${origin_avail_duration_sum},${num_ads_sum})`;
-      if (x < result.length - 1) { insertKPICmd += `${tempArr},`; } else { insertKPICmd += `${tempArr};`; }
-      x += 1;
-    });
+    console.log(result);
 
-    // after parsing through each row, connect to redshift to run the query
-    redshiftClient2.connect((connectErr) => {
-      if (connectErr) throw connectErr;
-      else {
-        console.log('Connected to Redshift!');
-        // running the query
-        redshiftClient2.query(insertKPICmd, (queryErr, queryData) => {
-          if (queryErr) throw queryErr;
-          else {
-            console.log(queryData);
-            console.log('Done!');
-            redshiftClient2.close();
+    if (result.length > 0) {
+      // for each row in the result, extract the data
+      result.forEach((row) => {
+        let day = ''; let origin_id = ''; let filled_duration_sum = ''; let origin_avail_duration_sum = ''; let
+          num_ads_sum = '';
+        row.forEach((ele) => {
+          if (ele.field === 'bin(1d)') {
+            const [d, time] = ele.value.split(' ');
+            // this is dilebrate because eslint has the array deconstructing warning
+            day = time;
+            day = d.split('-').join('');
+          } else if (ele.field === 'originId') {
+            origin_id = ele.value;
+          } else if (ele.field === 'SUM(avail.filledDuration)') {
+            filled_duration_sum = ele.value;
+          } else if (ele.field === 'SUM(avail.originAvailDuration)') {
+            origin_avail_duration_sum = ele.value;
+          } else if (ele.field === 'SUM(avail.numAds)') {
+            num_ads_sum = ele.value;
           }
         });
-      }
-    });
+        // append it into the redshift query string
+        const tempArr = `('${day}','${origin_id}',${filled_duration_sum},${origin_avail_duration_sum},${num_ads_sum})`;
+        if (x < result.length - 1) { insertKPICmd += `${tempArr},`; } else { insertKPICmd += `${tempArr};`; }
+        x += 1;
+      });
+
+      // after parsing through each row, connect to redshift to run the query
+      redshiftClient2.connect((connectErr) => {
+        if (connectErr) throw connectErr;
+        else {
+          console.log('Connected to Redshift!');
+          // running the query
+          redshiftClient2.query(insertKPICmd, (queryErr, queryData) => {
+            if (queryErr) throw queryErr;
+            else {
+              console.log(queryData);
+              console.log('Done!');
+              redshiftClient2.close();
+            }
+          });
+        }
+      });
+    } else {
+      console.log('Cannot find any record');
+    }
   } catch (e) {
     console.log(e);
     throw e;
