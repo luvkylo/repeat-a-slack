@@ -79,6 +79,7 @@ function statusFunc(queryId) {
                 resolve('Too much record');
               } else {
                 total += resultData.results.length;
+                console.log(resultData.results.length);
                 resolve('done');
               }
             });
@@ -207,7 +208,7 @@ async function main() {
             console.log(queryErr);
             throw new Error(queryErr);
           } else {
-            console.log(migrateData.rows[0].count);
+            console.log(migrateData.rows[0].count, total);
 
             // if number of records matches cloudwatch query record count
             if (+migrateData.rows[0].count <= total + 100
