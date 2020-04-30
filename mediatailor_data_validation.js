@@ -132,6 +132,7 @@ function cloudwatch() {
       // cloudwatchlogs = new AWS.CloudWatchLogs();
       const str = '[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}';
       const progress = new cliProgress.SingleBar({ format: str });
+      console.log(progress);
       progress.start((endDate - startDate + 1) / 60000, 0);
 
       // while start date is less than end date
