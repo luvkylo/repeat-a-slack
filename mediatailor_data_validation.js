@@ -8,7 +8,8 @@ const property = require('./property');
 
 AWS.config.update({ region: 'us-west-2' });
 
-let cloudwatchlogs = new AWS.CloudWatchLogs();
+// let cloudwatchlogs = new AWS.CloudWatchLogs();
+const cloudwatchlogs = new AWS.CloudWatchLogs();
 
 const statusParams = {
   logGroupName: 'MediaTailor/AdDecisionServerInteractions',
@@ -127,7 +128,7 @@ function cloudwatch() {
 
     // Create Cloudatch connection
     try {
-      cloudwatchlogs = new AWS.CloudWatchLogs();
+      // cloudwatchlogs = new AWS.CloudWatchLogs();
       const str = '[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}';
       const progress = new cliProgress.SingleBar({ format: str });
       progress.start((endDate - startDate + 1) / 60000, 0);
