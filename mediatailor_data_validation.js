@@ -111,8 +111,8 @@ function query(queryParams) {
 function cloudwatch() {
   return new Promise(async (resolve, reject) => {
     // set query intervals
-    const startDate = Date.UTC(firstYear, firstMonth, firstDay, 0, 0, 0, 0);
-    const endDate = Date.UTC(secondYear, secondMonth, secondDay, 23, 59, 59, 999);
+    const startDate = Date.UTC(secondYear, secondMonth, secondDay, 0, 0, 0, 0);
+    const endDate = Date.UTC(firstYear, firstMonth, firstDay, 23, 59, 59, 999);
 
     let progressDate = startDate;
 
