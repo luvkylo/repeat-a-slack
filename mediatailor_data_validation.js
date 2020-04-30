@@ -188,11 +188,11 @@ function cloudwatch() {
 async function main() {
   try {
     console.log('starting!');
-    await cloudwatch().catch((e) => {
+    const cloudquery = await cloudwatch().catch((e) => {
       console.log(e);
       throw new Error(e);
     });
-
+    console.log(`cloudwatch query: ${cloudquery}`);
     // query redshift records for number of records
     const selectCmd = `SELECT count(*) FROM cwl_mediatailor_ad_decision_server_interactions WHERE event_timestamp BETWEEN \'${secondYear}-${secondMonth}-${secondDay} 00:00:00\' AND \'${firstYear}-${firstMonth}-${firstDay} 23:59:59\';`;
     redshiftClient2.connect((connectErr) => {
