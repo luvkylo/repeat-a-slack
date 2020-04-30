@@ -79,6 +79,7 @@ function statusFunc(queryId) {
                 resolve('Too much record');
               } else {
                 total += resultData.results.length;
+                console.log(resultData.results.length);
                 resolve('done');
               }
             });
@@ -131,6 +132,7 @@ function cloudwatch() {
       // cloudwatchlogs = new AWS.CloudWatchLogs();
       const str = '[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}';
       const progress = new cliProgress.SingleBar({ format: str });
+      console.log(progress);
       progress.start((endDate - startDate + 1) / 60000, 0);
 
       // while start date is less than end date
@@ -207,7 +209,7 @@ async function main() {
             console.log(queryErr);
             throw new Error(queryErr);
           } else {
-            console.log(migrateData.rows[0].count);
+            console.log(migrateData.rows[0].count, total);
 
             // if number of records matches cloudwatch query record count
             if (+migrateData.rows[0].count <= total + 100
