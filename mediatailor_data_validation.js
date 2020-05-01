@@ -11,6 +11,8 @@ AWS.config.update({ region: 'us-west-2' });
 // let cloudwatchlogs = new AWS.CloudWatchLogs();
 const cloudwatchlogs = new AWS.CloudWatchLogs();
 
+// const sts = new AWS.STS();
+
 const statusParams = {
   logGroupName: 'MediaTailor/AdDecisionServerInteractions',
   status: 'Running',
@@ -26,13 +28,13 @@ let stop = 0;
 const date = new Date();
 const firstDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
   date.getUTCDate() - 1, date.getUTCHours(), date.getUTCMinutes()));
-const firstMonth = firstDate.getUTCMonth() + 1;
+const firstMonth = firstDate.getUTCMonth();
 const firstYear = firstDate.getUTCFullYear();
 const firstDay = firstDate.getUTCDate();
 
 const secondDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
   date.getUTCDate() - 2, date.getUTCHours(), date.getUTCMinutes()));
-const secondMonth = secondDate.getUTCMonth() + 1;
+const secondMonth = secondDate.getUTCMonth();
 const secondYear = secondDate.getUTCFullYear();
 const secondDay = secondDate.getUTCDate();
 
@@ -79,7 +81,6 @@ function statusFunc(queryId) {
                 resolve('Too much record');
               } else {
                 total += resultData.results.length;
-                console.log(resultData.results.length);
                 resolve('done');
               }
             });
@@ -132,7 +133,6 @@ function cloudwatch() {
       // cloudwatchlogs = new AWS.CloudWatchLogs();
       const str = '[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}';
       const progress = new cliProgress.SingleBar({ format: str });
-      console.log(progress);
       progress.start((endDate - startDate + 1) / 60000, 0);
 
       // while start date is less than end date
@@ -190,6 +190,29 @@ function cloudwatch() {
 
 async function main() {
   try {
+    // the comment below is used in the local enviroment to assume role
+    // in order to read the data from cloudwatch
+
+    // sts.assumeRole({
+    //   RoleArn: 'arn:aws:iam::881583556644:role/freq-assumes-cloudwatch-readonly-master-account',
+    //   RoleSessionName: 'alvin@frequency.com',
+    //   SerialNumber: 'arn:aws:iam::077497804067:mfa/alvin@frequency.com',
+    //   TokenCode: '090607',
+    //   DurationSeconds: 43200,
+    // }, async (err, data) => {
+    //   if (err) {
+    //     console.log('Cannot assume role');
+    //     console.log(err, err.stack);
+    //   } else {
+    //     AWS.config.update({
+    //       accessKeyId: data.Credentials.AccessKeyId,
+    //       secretAccessKey: data.Credentials.SecretAccessKey,
+    //       sessionToken: data.Credentials.SessionToken,
+    //     });
+    //     console.log('Assumed Role!');
+
+    //     cloudwatchlogs = new AWS.CloudWatchLogs();
+
     console.log('starting!');
     const cloudquery = await cloudwatch().catch((e) => {
       console.log(e);
@@ -214,10 +237,10 @@ async function main() {
             // if number of records matches cloudwatch query record count
             if (+migrateData.rows[0].count <= total + 100
               && +migrateData.rows[0].count >= total - 100) {
-            // record validated
+              // record validated
               console.log('Record match!');
             } else {
-            // else throw error
+              // else throw error
               throw new Error('Record does not match!');
             }
             redshiftClient2.close();
@@ -225,6 +248,8 @@ async function main() {
         });
       }
     });
+    //   }
+    // });
   } catch (err) {
     console.log(err);
     throw new Error(err);
