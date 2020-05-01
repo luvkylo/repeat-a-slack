@@ -721,49 +721,49 @@ async function listAllKeys() {
                   throw new Error(e);
                 });
                 console.log(done);
-                // Run Redshift query
-                redshiftClient2.connect((connectErr) => {
-                  if (connectErr) throw new Error(connectErr);
-                  else {
-                    console.log('Connected to Redshift!');
-                    console.log('Running Redshift queries...');
-
-                    for (let x = 0; x < ti.length; x += 1) {
-                      const table = ti[x].replace(/"/g, '');
-
-                      // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
-                      const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
-
-                      redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
-                        if (queryErr) throw new Error(queryErr);
-                        else {
-                          console.log(migrateData);
-                          console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
-                          if (x === (ti.length - 1)) {
-                            redshiftClient2.close();
-                            console.log('Removing temporary file...');
-
-                            // Remove the temporary file
-                            nameArr.forEach((namePath) => {
-                              try {
-                                fs.unlinkSync(namePath);
-                                console.log(`File removed: ${namePath}`);
-                              } catch (fileErr) {
-                                console.log(`Error: ${fileErr}`);
-                                throw new Error(fileErr);
-                              }
-                            });
-                          }
-                        }
-                      });
-                    }
-                  }
-                });
               } catch (error) {
                 console.log(`Error: ${error}`);
                 throw new Error(error);
               }
             }
+            // Run Redshift query
+            redshiftClient2.connect((connectErr) => {
+              if (connectErr) throw new Error(connectErr);
+              else {
+                console.log('Connected to Redshift!');
+                console.log('Running Redshift queries...');
+
+                for (let x = 0; x < ti.length; x += 1) {
+                  const table = ti[x].replace(/"/g, '');
+
+                  // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                  const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+
+                  redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
+                    if (queryErr) throw new Error(queryErr);
+                    else {
+                      console.log(migrateData);
+                      console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
+                      if (x === (ti.length - 1)) {
+                        redshiftClient2.close();
+                        console.log('Removing temporary file...');
+
+                        // Remove the temporary file
+                        nameArr.forEach((namePath) => {
+                          try {
+                            fs.unlinkSync(namePath);
+                            console.log(`File removed: ${namePath}`);
+                          } catch (fileErr) {
+                            console.log(`Error: ${fileErr}`);
+                            throw new Error(fileErr);
+                          }
+                        });
+                      }
+                    }
+                  });
+                }
+              }
+            });
           }
         } catch (err) {
           console.log(`Error: ${err}`);
