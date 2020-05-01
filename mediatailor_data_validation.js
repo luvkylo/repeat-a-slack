@@ -238,8 +238,8 @@ async function main() {
                 console.log(migrateData.rows[0].count, total);
 
                 // if number of records matches cloudwatch query record count
-                if (+migrateData.rows[0].count <= total + 100
-              && +migrateData.rows[0].count >= total - 100) {
+                if (+migrateData.rows[0].count <= total + 500
+              && +migrateData.rows[0].count >= total - 500) {
                   // record validated
                   console.log('Record match!');
                 } else {
