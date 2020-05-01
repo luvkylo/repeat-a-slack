@@ -8,10 +8,10 @@ const property = require('./property');
 
 AWS.config.update({ region: 'us-west-2' });
 
-// let cloudwatchlogs = new AWS.CloudWatchLogs();
-const cloudwatchlogs = new AWS.CloudWatchLogs();
+let cloudwatchlogs = new AWS.CloudWatchLogs();
+// const cloudwatchlogs = new AWS.CloudWatchLogs();
 
-// const sts = new AWS.STS();
+const sts = new AWS.STS();
 
 const statusParams = {
   logGroupName: 'MediaTailor/AdDecisionServerInteractions',
@@ -39,6 +39,9 @@ const secondYear = secondDate.getUTCFullYear();
 const secondDay = secondDate.getUTCDate();
 
 const client = property.redshift;
+
+console.log(firstYear, firstMonth, firstDay);
+console.log(secondYear, secondMonth, secondDay);
 
 // Create Redshift connection
 const redshiftClient2 = new Redshift(client, { rawConnection: true });
@@ -193,63 +196,63 @@ async function main() {
     // the comment below is used in the local enviroment to assume role
     // in order to read the data from cloudwatch
 
-    // sts.assumeRole({
-    //   RoleArn: 'arn:aws:iam::881583556644:role/freq-assumes-cloudwatch-readonly-master-account',
-    //   RoleSessionName: 'alvin@frequency.com',
-    //   SerialNumber: 'arn:aws:iam::077497804067:mfa/alvin@frequency.com',
-    //   TokenCode: '090607',
-    //   DurationSeconds: 43200,
-    // }, async (err, data) => {
-    //   if (err) {
-    //     console.log('Cannot assume role');
-    //     console.log(err, err.stack);
-    //   } else {
-    //     AWS.config.update({
-    //       accessKeyId: data.Credentials.AccessKeyId,
-    //       secretAccessKey: data.Credentials.SecretAccessKey,
-    //       sessionToken: data.Credentials.SessionToken,
-    //     });
-    //     console.log('Assumed Role!');
-
-    //     cloudwatchlogs = new AWS.CloudWatchLogs();
-
-    console.log('starting!');
-    const cloudquery = await cloudwatch().catch((e) => {
-      console.log(e);
-      throw new Error(e);
-    });
-    console.log(`cloudwatch query: ${cloudquery}`);
-    // query redshift records for number of records
-    const selectCmd = `SELECT count(*) FROM cwl_mediatailor_ad_decision_server_interactions WHERE event_timestamp BETWEEN \'${secondYear}-${secondMonth}-${secondDay} 00:00:00\' AND \'${firstYear}-${firstMonth}-${firstDay} 23:59:59\';`;
-    redshiftClient2.connect((connectErr) => {
-      if (connectErr) {
-        console.log(connectErr);
-        throw new Error(connectErr);
+    sts.assumeRole({
+      RoleArn: 'arn:aws:iam::881583556644:role/freq-assumes-cloudwatch-readonly-master-account',
+      RoleSessionName: 'alvin@frequency.com',
+      SerialNumber: 'arn:aws:iam::077497804067:mfa/alvin@frequency.com',
+      TokenCode: '257688',
+      DurationSeconds: 43200,
+    }, async (err, data) => {
+      if (err) {
+        console.log('Cannot assume role');
+        console.log(err, err.stack);
       } else {
-        console.log('Connected to Redshift!');
-        redshiftClient2.query(selectCmd, (queryErr, migrateData) => {
-          if (queryErr) {
-            console.log(queryErr);
-            throw new Error(queryErr);
-          } else {
-            console.log(migrateData.rows[0].count, total);
+        AWS.config.update({
+          accessKeyId: data.Credentials.AccessKeyId,
+          secretAccessKey: data.Credentials.SecretAccessKey,
+          sessionToken: data.Credentials.SessionToken,
+        });
+        console.log('Assumed Role!');
 
-            // if number of records matches cloudwatch query record count
-            if (+migrateData.rows[0].count <= total + 100
+        cloudwatchlogs = new AWS.CloudWatchLogs();
+
+        console.log('starting!');
+        const cloudquery = await cloudwatch().catch((e) => {
+          console.log(e);
+          throw new Error(e);
+        });
+        console.log(`cloudwatch query: ${cloudquery}`);
+        // query redshift records for number of records
+        const selectCmd = `SELECT count(*) FROM cwl_mediatailor_ad_decision_server_interactions WHERE event_timestamp BETWEEN \'${secondYear}-${secondMonth + 1}-${secondDay} 00:00:00\' AND \'${firstYear}-${firstMonth + 1}-${firstDay} 23:59:59\';`;
+        redshiftClient2.connect((connectErr) => {
+          if (connectErr) {
+            console.log(connectErr);
+            throw new Error(connectErr);
+          } else {
+            console.log('Connected to Redshift!');
+            redshiftClient2.query(selectCmd, (queryErr, migrateData) => {
+              if (queryErr) {
+                console.log(queryErr);
+                throw new Error(queryErr);
+              } else {
+                console.log(migrateData.rows[0].count, total);
+
+                // if number of records matches cloudwatch query record count
+                if (+migrateData.rows[0].count <= total + 100
               && +migrateData.rows[0].count >= total - 100) {
-              // record validated
-              console.log('Record match!');
-            } else {
-              // else throw error
-              throw new Error('Record does not match!');
-            }
-            redshiftClient2.close();
+                  // record validated
+                  console.log('Record match!');
+                } else {
+                  // else throw error
+                  throw new Error('Record does not match!');
+                }
+                redshiftClient2.close();
+              }
+            });
           }
         });
       }
     });
-    //   }
-    // });
   } catch (err) {
     console.log(err);
     throw new Error(err);
