@@ -311,7 +311,10 @@ function listAllKeys() {
                 const currentGz = [];
 
                 console.log('Appending all recent file key to array for looping...');
-                currentGz.push(arr[c].Key);
+
+                for (let co = c; co >= 0; co -= 1) {
+                  currentGz.push(arr[co].Key);
+                }
 
                 const itemLastModified = new Date(arr[c].LastModified);
                 console.log(`Item last modified: ${itemLastModified.toISOString()}`);
