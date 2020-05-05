@@ -89,14 +89,14 @@ const errWrite = fs.createWriteStream(path.join(__dirname, 'JSON', 'error.json')
 // Function for completing multipart upload
 function completeMultipartUpload(doneParams) {
   // S3 call
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
     // when completed multipart upload
       s3.completeMultipartUpload(doneParams, (err, data) => {
         try {
           if (err) {
             console.log('An error occurred while completing the multipart upload');
-            reject(new Error(err));
+            throw new Error(err);
           } else {
             // When upload are complete
             const delta = (new Date() - startTime) / 1000;
@@ -105,20 +105,18 @@ function completeMultipartUpload(doneParams) {
             resolve(data);
           }
         } catch (error) {
-          console.log(`Error: ${error}`);
-          reject(new Error(error));
+          throw new Error(error);
         }
       });
     } catch (err) {
-      console.log(`Error: ${err}`);
-      reject(new Error(err));
+      throw new Error(err);
     }
   });
 }
 
 // Function to upload parts
 function uploadPart(multipart, partParams, file, tryNum = 1) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
     // S3 call
       s3.uploadPart(partParams, async (multiErr, mData) => {
@@ -135,7 +133,7 @@ function uploadPart(multipart, partParams, file, tryNum = 1) {
                 const res = await uploadPart(multipart, partParams, file, tryNum + 1)
                   .catch((e) => {
                     console.log(`Error: ${e}`);
-                    reject(new Error(e));
+                    throw new Error(e);
                   });
                 resolve(res);
               } else {
@@ -144,7 +142,7 @@ function uploadPart(multipart, partParams, file, tryNum = 1) {
               }
             } else {
               // if retried 5 times and still failed, reject the part
-              reject(new Error(`Failed uploading part: #${partParams.PartNumber}`));
+              throw new Error(`Failed uploading part: #${partParams.PartNumber}`);
             }
           } else {
             // Append to the multipartMap for final assembly in completeMultipartUpload function
@@ -175,24 +173,20 @@ function uploadPart(multipart, partParams, file, tryNum = 1) {
               try {
                 const completedMulti = await completeMultipartUpload(doneParams)
                   .catch((e) => {
-                    console.log(`Error: ${e}`);
-                    reject(new Error(e));
+                    throw new Error(e);
                   });
                 resolve(completedMulti.Location);
               } catch (error) {
-                console.log(`Error: ${error}`);
-                reject(error);
+                throw new Error(error);
               }
             }
           }
         } catch (err) {
-          console.log(`Error: ${err}`);
-          reject(new Error(err));
+          throw new Error(err);
         }
       });
     } catch (err) {
-      console.log(`Error: ${err}`);
-      reject(new Error(err));
+      throw new Error(err);
     }
   });
 }
@@ -201,7 +195,7 @@ console.log('Getting all objects in S3 bucket...');
 
 // Function to write to files
 function writeToFile(region, key) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       getParams.Key = key;
       const writeObj = {};
@@ -215,13 +209,13 @@ function writeToFile(region, key) {
       // Listen for errors returned by the service
       s3Stream.on('error', (err) => {
         // NoSuchKey: The specified key does not exist
-        reject(err);
+        throw new Error(err);
       });
 
       // stream write to file locally
       s3Stream.pipe(fileStream).on('error', (err) => {
         // capture any errors that occur when writing data to the file
-        reject(new Error(`File Stream:${err}`));
+        throw new Error(`File Stream:${err}`);
       }).on('close', () => {
         console.log(`Got the file ${key}, getting number of lines.`);
 
@@ -229,7 +223,7 @@ function writeToFile(region, key) {
 
         // count the line in files to get an accurate cli progress bar
         countLinesInFile(path.join(__dirname, 'JSON', `temp_${region}.json`), (err, num) => {
-          if (err) reject(err);
+          if (err) throw new Error(err);
           else {
             nameArr.push(path.join(__dirname, 'JSON', `temp_${region}.json`));
             console.log(`Got the number of lines: ${num}`);
@@ -408,7 +402,7 @@ function writeToFile(region, key) {
                           jsonStream.destroy();
                           jsonStream.on('close', () => {
                             console.log('Error: Too much error');
-                            reject(new Error('Too much error'));
+                            throw new Error('Too much error');
                           });
                         }
                       }
@@ -442,15 +436,14 @@ function writeToFile(region, key) {
         });
       });
     } catch (err) {
-      console.log(`Error: ${err}`);
-      reject(new Error(err));
+      throw new Error(err);
     }
   });
 }
 
 // Functions to upload file to S3
 function uploadFile(file) {
-  return new Promise((res, rej) => {
+  return new Promise((res) => {
     try {
       splitFile.splitFileBySize(`${__dirname}/JSON/${file.replace(/"/g, '')}.json`, 2147483647)
         .then((names) => {
@@ -509,7 +502,7 @@ function uploadFile(file) {
           // S3 call to get a multipart upload ID
           multiPartParams.Key = `${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${file.replace(/"/g, '')}.json`;
           s3.createMultipartUpload(multiPartParams, async (mpErr, multipart) => {
-            if (mpErr) { rej(new Error(mpErr)); }
+            if (mpErr) { throw new Error(mpErr); }
             console.log('Got upload ID', multipart.UploadId);
 
             let bufferObj = buffers[first];
@@ -587,14 +580,14 @@ function uploadFile(file) {
               partObj[partParams.PartNumber] = '';
               // set retry flag for this particular part to 1
               retry[partParams.PartNumber] = 1;
-              promises.push(new Promise(async (resolve, reject) => {
+              promises.push(new Promise(async (resolve) => {
                 try {
-                  const msg = await uploadPart(multipart, partParams, file.replace(/"/g, '')).catch((e) => reject(new Error(e)));
+                  const msg = await uploadPart(multipart, partParams, file.replace(/"/g, '')).catch((e) => { throw new Error(e); });
                   console.log(msg);
                   resolve(msg);
                 } catch (error) {
                   console.log(`Error: ${error}`);
-                  reject(new Error(error));
+                  throw new Error(error);
                 }
               }));
             }
@@ -616,18 +609,15 @@ function uploadFile(file) {
               })
               .catch((promisesErr) => {
               // throw error
-                console.log(`Error: ${promisesErr}`);
-                rej(new Error(promisesErr));
+                throw new Error(promisesErr);
               });
           });
         })
         .catch((err) => {
-          console.log(`Error: ${err}`);
-          rej(new Error(err));
+          throw new Error(err);
         });
     } catch (err) {
-      console.log(`Error: ${err}`);
-      rej(new Error(err));
+      throw new Error(err);
     }
   });
 }

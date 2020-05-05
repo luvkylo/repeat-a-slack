@@ -1,13 +1,13 @@
 require('dotenv').config();
 
 const AWS = require('aws-sdk');
-// let property = require("./property_local");
 const zlib = require('zlib');
 const Redshift = require('node-redshift');
 const fs = require('fs');
 const path = require('path');
 const splitFile = require('split-file');
 const cliProgress = require('cli-progress');
+// const property = require('./property_local');
 const property = require('./property');
 
 // Config AWS connection
@@ -132,7 +132,7 @@ function completeMultipartUpload(doneParams) {
 
         // Run Redshift query
         console.log('Running Redshift query...');
-        // let copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
+        // const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
         const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
         redshiftClient2.connect((connectErr) => {
           if (connectErr) throw new Error(connectErr);
@@ -186,7 +186,6 @@ function uploadPart(multipart, partParams, tryNum = 1) {
         } else {
           throw new Error(`Failed uploading part: #${partParams.PartNumber}`);
         }
-        throw new Error(`Retrying part #${partParams.PartNumber} already.`);
       }
 
       // Append to the multipartMap for final assembly in completeMultipartUpload function
@@ -227,13 +226,12 @@ function uploadPart(multipart, partParams, tryNum = 1) {
 console.log('Getting all objects in S3 bucket...');
 
 function getRecord() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     s3.getObject({
       Bucket: property.aws.toBucketName,
       Key: 'completedRecord.txt',
     }, (err, data) => {
-      if (err) reject(new Error(err));
-      else resolve(data.Body.toString());
+      if (err) { throw new Error(err); } else resolve(data.Body.toString());
     });
   });
 }
@@ -328,17 +326,17 @@ function listAllKeys() {
                 const promises = [];
                 currentGz.forEach((key) => {
                 // Add promise to the array
-                  promises.push(new Promise((resolve, reject) => {
+                  promises.push(new Promise((resolve) => {
                     getParams.Key = key;
 
                     // Get the file using key
                     s3.getObject(getParams, (getErr, getData) => {
-                      if (getErr) reject(new Error(getErr));
+                      if (getErr) throw new Error(getErr);
                       else {
                       // Uncompress the data returned
                         const buffer = new Buffer.alloc(getData.ContentLength, getData.Body, 'base64');
                         zlib.unzip(buffer, (zipErr, zipData) => {
-                          if (zipErr) reject(new Error(zipErr));
+                          if (zipErr) throw new Error(zipErr);
                           else {
                           // Split each data into array when new line
                             let logData = zipData.toString().split('{"messageType"');
@@ -497,178 +495,182 @@ function listAllKeys() {
                   .then(() => {
                     progress.stop();
                     // Close the writing stream to file so all data is settled
-                    stream.end(() => {
-                    // split the JSON file incase it reaches the Buffer limit at 2147483647 bytes
-                      splitFile.splitFileBySize(`${__dirname}/JSON/temp.json`, 2147483647)
-                        .then((names) => {
-                        // Once all data is settled, Read the JSON file and
-                        // prepare its data to be split into parts for mulipart uploads
-                          console.log('All data is written to temporary JSON file(s)!');
+                    stream
+                      .on('error', (err) => {
+                        console.log(err);
+                        throw new Error(err);
+                      })
+                      .end(() => {
+                        // split the JSON file incase it reaches
+                        // the Buffer limit at 2147483647 bytes
+                        splitFile.splitFileBySize(`${__dirname}/JSON/temp.json`, 2147483647)
+                          .then((names) => {
+                            // Once all data is settled, Read the JSON file and
+                            // prepare its data to be split into parts for mulipart uploads
+                            console.log('All data is written to temporary JSON file(s)!');
 
-                          const buffers = {};
-                          let last = '';
-                          const first = names[0];
-                          let i = 1;
+                            const buffers = {};
+                            let last = '';
+                            const first = names[0];
+                            let i = 1;
 
-                          // Once split to different JSON file
-                          names.forEach((name) => {
-                          // Read each buffer and append to an object with structure:
-                          // {
-                          //     "Part1 __dirname": {
-                          //         buffer: < Buffer>,
-                          //         next: "Part2 __dirname",
-                          //         num: "Part num, e.g. 1"
-                          //     },
-                          //     "Part2 __dirname": {
-                          //         buffer: < Buffer>,
-                          //         next: (if there is another part) "Part3 __dirname",
-                          //         num: "Part num, e.g. 1"
-                          //     },
-                          // }
-                            buffers[name] = {
-                              num: i,
-                            };
-                            i += 1;
-                            if (last !== '') {
-                              const buffObj = buffers[last];
-                              buffObj.next = name;
-                              buffers[last] = buffObj;
-                            }
-                            last = name;
-                          });
-                          nameArr = names;
+                            // Once split to different JSON file
+                            names.forEach((name) => {
+                              // Read each buffer and append to an object with structure:
+                              // {
+                              //     "Part1 __dirname": {
+                              //         buffer: < Buffer>,
+                              //         next: "Part2 __dirname",
+                              //         num: "Part num, e.g. 1"
+                              //     },
+                              //     "Part2 __dirname": {
+                              //         buffer: < Buffer>,
+                              //         next: (if there is another part) "Part3 __dirname",
+                              //         num: "Part num, e.g. 1"
+                              //     },
+                              // }
+                              buffers[name] = {
+                                num: i,
+                              };
+                              i += 1;
+                              if (last !== '') {
+                                const buffObj = buffers[last];
+                                buffObj.next = name;
+                                buffers[last] = buffObj;
+                              }
+                              last = name;
+                            });
+                            nameArr = names;
 
-                          // Get the total length of buffer
-                          let length = 0;
+                            // Get the total length of buffer
+                            let length = 0;
 
-                          Object.keys(buffers).forEach((key) => {
-                            const stat = fs.statSync(key);
-                            const { size } = stat;
-                            length += size;
-                          });
+                            Object.keys(buffers).forEach((key) => {
+                              const stat = fs.statSync(key);
+                              const { size } = stat;
+                              length += size;
+                            });
 
-                          console.log(`Total buffer bytes: ${length}`);
+                            console.log(`Total buffer bytes: ${length}`);
 
-                          // Calculate the number of parts needed to upload
-                          // the whole file with each parts in 100 MB size
-                          console.log('Creating multipart upload for:', fileKey);
+                            // Calculate the number of parts needed to upload
+                            // the whole file with each parts in 100 MB size
+                            console.log('Creating multipart upload for:', fileKey);
 
-                          // S3 call to get a multipart upload ID
-                          s3.createMultipartUpload(multiPartParams, (mpErr, multipart) => {
-                            if (mpErr) { throw new Error('Error!', mpErr); } else {
-                              console.log('Got upload ID', multipart.UploadId);
+                            // S3 call to get a multipart upload ID
+                            s3.createMultipartUpload(multiPartParams, (mpErr, multipart) => {
+                              if (mpErr) { throw new Error('Error!', mpErr); } else {
+                                console.log('Got upload ID', multipart.UploadId);
 
-                              let bufferObj = buffers[first];
-                              bufferObj.buffer = fs.readFileSync(first);
+                                let bufferObj = buffers[first];
+                                bufferObj.buffer = fs.readFileSync(first);
 
-                              // Grab each partSize chunk and upload it as a part
-                              for (let rangeStart = 0; rangeStart < length;
-                                rangeStart += partSize) {
-                                partNum += 1;
-                                const end = Math.min(rangeStart + partSize, length);
-                                let start = rangeStart;
-                                const { buffer } = bufferObj;
-                                let body = '';
+                                // Grab each partSize chunk and upload it as a part
+                                for (let rangeStart = 0; rangeStart < length;
+                                  rangeStart += partSize) {
+                                  partNum += 1;
+                                  const end = Math.min(rangeStart + partSize, length);
+                                  let start = rangeStart;
+                                  const { buffer } = bufferObj;
+                                  let body = '';
 
-                                // Collect bytes from different buffer and append to the body param
-                                // If first buffer
-                                if (bufferObj.num === 1) {
+                                  // Collect bytes from different buffer and
+                                  // append to the body param
+                                  // If first buffer
+                                  if (bufferObj.num === 1) {
                                   // If part length exceed buffer current
                                   // buffer length, get the next buffer
-                                  if ((bufferObj.num * 2147483647) > rangeStart
+                                    if ((bufferObj.num * 2147483647) > rangeStart
                                 && (bufferObj.num * 2147483647) < end) {
-                                    buffers[bufferObj.next].buffer = fs
-                                      .readFileSync(bufferObj.next);
+                                      buffers[bufferObj.next].buffer = fs
+                                        .readFileSync(bufferObj.next);
 
-                                    const part1 = buffer.slice(start, 2147483647);
-                                    const part2 = buffers[bufferObj.next]
-                                      .buffer.slice(0, end - 2147483647);
+                                      const part1 = buffer.slice(start, 2147483647);
+                                      const part2 = buffers[bufferObj.next]
+                                        .buffer.slice(0, end - 2147483647);
 
-                                    // Concat the two part and change the body param
-                                    body = Buffer.concat([part1, part2]);
+                                      // Concat the two part and change the body param
+                                      body = Buffer.concat([part1, part2]);
 
-                                    console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                                    console.log(`Part ${bufferObj.num} Byte end: ${2147483647}`);
-                                    console.log(`Part ${buffers[bufferObj.next].num} Byte start: ${0}`);
-                                    console.log(`Part ${buffers[bufferObj.next].num} Byte end: ${end - 2147483647}`);
-                                    console.log(`Total byte: ${end}`);
+                                      console.log(`Part ${bufferObj.num} Byte start: ${start}`);
+                                      console.log(`Part ${bufferObj.num} Byte end: ${2147483647}`);
+                                      console.log(`Part ${buffers[bufferObj.next].num} Byte start: ${0}`);
+                                      console.log(`Part ${buffers[bufferObj.next].num} Byte end: ${end - 2147483647}`);
+                                      console.log(`Total byte: ${end}`);
 
-                                    // Move to next buffer object
-                                    bufferObj = buffers[bufferObj.next];
+                                      // Move to next buffer object
+                                      bufferObj = buffers[bufferObj.next];
 
                                     // Else proceed as normal in the same buffer
-                                  } else {
-                                    body = buffer.slice(start, end);
-                                    console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                                    console.log(`Part ${bufferObj.num} Byte end: ${end}`);
-                                    console.log(`Total byte: ${end}`);
-                                  }
+                                    } else {
+                                      body = buffer.slice(start, end);
+                                      console.log(`Part ${bufferObj.num} Byte start: ${start}`);
+                                      console.log(`Part ${bufferObj.num} Byte end: ${end}`);
+                                      console.log(`Total byte: ${end}`);
+                                    }
 
                                   // Else change the start and end byte
                                   // to accomadate moving to a new buffer
-                                } else {
-                                  start = rangeStart - (2147483647 * (bufferObj.num - 1));
-                                  const rangeEnd = end - (2147483647 * (bufferObj.num - 1));
+                                  } else {
+                                    start = rangeStart - (2147483647 * (bufferObj.num - 1));
+                                    const rangeEnd = end - (2147483647 * (bufferObj.num - 1));
 
-                                  // If part length exceed buffer current buffer length,
-                                  // get the next buffer
-                                  if ((bufferObj.num * 2147483647) > rangeStart
+                                    // If part length exceed buffer current buffer length,
+                                    // get the next buffer
+                                    if ((bufferObj.num * 2147483647) > rangeStart
                                 && (bufferObj.num * 2147483647) < end) {
-                                    buffers[bufferObj.next].buffer = fs
-                                      .readFileSync(bufferObj.next);
+                                      buffers[bufferObj.next].buffer = fs
+                                        .readFileSync(bufferObj.next);
 
-                                    const part1 = buffer.slice(start, 2147483647);
-                                    const part2 = buffers[bufferObj.next].buffer
-                                      .slice(0, rangeEnd - 2147483647);
+                                      const part1 = buffer.slice(start, 2147483647);
+                                      const part2 = buffers[bufferObj.next].buffer
+                                        .slice(0, rangeEnd - 2147483647);
 
-                                    // Concat the two part and change the body param
-                                    body = Buffer.concat([part1, part2]);
+                                      // Concat the two part and change the body param
+                                      body = Buffer.concat([part1, part2]);
 
-                                    console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                                    console.log(`Part ${bufferObj.num} Byte end: ${2147483647}`);
-                                    console.log(`Part ${buffers[bufferObj.next].num} Byte start: ${0}`);
-                                    console.log(`Part ${buffers[bufferObj.next].num} Byte end: ${rangeEnd - 2147483647}`);
+                                      console.log(`Part ${bufferObj.num} Byte start: ${start}`);
+                                      console.log(`Part ${bufferObj.num} Byte end: ${2147483647}`);
+                                      console.log(`Part ${buffers[bufferObj.next].num} Byte start: ${0}`);
+                                      console.log(`Part ${buffers[bufferObj.next].num} Byte end: ${rangeEnd - 2147483647}`);
 
-                                    console.log(`Total byte: ${end}`);
+                                      console.log(`Total byte: ${end}`);
 
-                                    // Move to next buffer object
-                                    bufferObj = buffers[bufferObj.next];
+                                      // Move to next buffer object
+                                      bufferObj = buffers[bufferObj.next];
 
                                     // Else proceed as normal in the same buffer
-                                  } else {
-                                    body = buffer.slice(start, rangeEnd);
-                                    console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                                    console.log(`Part ${bufferObj.num} Byte end: ${rangeEnd}`);
+                                    } else {
+                                      body = buffer.slice(start, rangeEnd);
+                                      console.log(`Part ${bufferObj.num} Byte start: ${start}`);
+                                      console.log(`Part ${bufferObj.num} Byte end: ${rangeEnd}`);
 
-                                    console.log(`Total byte: ${end}`);
+                                      console.log(`Total byte: ${end}`);
+                                    }
+                                  }
+
+                                  const partParams = {
+                                    Body: body,
+                                    Bucket: property.aws.toBucketName,
+                                    Key: `${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json`,
+                                    PartNumber: String(partNum),
+                                    UploadId: multipart.UploadId,
+                                  };
+                                  // Send a single part
+                                  console.log('Uploading part: #', partParams.PartNumber, ', Range start:', rangeStart);
+                                  partObj[partParams.PartNumber] = '';
+                                  try {
+                                    uploadPart(multipart, partParams);
+                                  } catch (error) {
+                                    throw new Error(error);
                                   }
                                 }
-
-                                const partParams = {
-                                  Body: body,
-                                  Bucket: property.aws.toBucketName,
-                                  Key: `${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json`,
-                                  PartNumber: String(partNum),
-                                  UploadId: multipart.UploadId,
-                                };
-                                // Send a single part
-                                console.log('Uploading part: #', partParams.PartNumber, ', Range start:', rangeStart);
-                                partObj[partParams.PartNumber] = '';
-                                try {
-                                  uploadPart(multipart, partParams);
-                                } catch (error) {
-                                  throw new Error(error);
-                                }
                               }
-                            }
+                            });
+                          })
+                          .catch((err) => {
+                            throw new Error(err);
                           });
-                        })
-                        .catch((err) => {
-                          throw new Error(err);
-                        });
-                    })
-                      .catch((endErr) => {
-                        throw new Error(endErr);
                       });
                   })
                   .catch((promErr) => {
