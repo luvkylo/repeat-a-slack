@@ -31,26 +31,23 @@ let insertKPICmd = 'INSERT INTO cwl_mediatailor_fillrate (query_date, origin_id,
 
 // Check query status
 function statusFunc(queryId, cloudwatchlogs) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     setTimeout(() => {
       // check cloudwatch query status
       cloudwatchlogs.describeQueries(statusParams, async (err, statusData) => {
         if (err) {
-          console.log(err);
-          reject(err);
+          throw new Error(err);
         } else {
           const arr = statusData.queries.filter((q) => (q.queryId === queryId));
           // if status is running, run the function again
           if (arr.length > 0) {
             try {
               const status = await statusFunc(queryId, cloudwatchlogs).catch((e) => {
-                console.log(e);
-                reject(e);
+                throw new Error(e);
               });
               resolve(status);
             } catch (e) {
-              console.log(e);
-              reject(e);
+              throw new Error(e);
             }
           // else, get the query result
           } else {
@@ -60,8 +57,7 @@ function statusFunc(queryId, cloudwatchlogs) {
 
             cloudwatchlogs.getQueryResults(resultParams, (resultErr, resultData) => {
               if (resultErr) {
-                console.log(resultErr, resultErr.stack); // an error occurred
-                reject(resultErr);
+                throw new Error(resultErr);
               } else {
                 resolve(resultData.results);
               }
@@ -75,24 +71,21 @@ function statusFunc(queryId, cloudwatchlogs) {
 
 // function that starts the query
 function query(queryParams, cloudwatchlogs) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     cloudwatchlogs.startQuery(queryParams, async (err, data) => {
       if (err) {
-        console.log(err, err.stack);
-        reject(err);
+        throw new Error(err);
       } else {
         // wait for query to complete
         console.log('Started Query');
         console.log(data);
         try {
           const status = await statusFunc(data.queryId, cloudwatchlogs).catch((e) => {
-            console.log(e);
-            reject(e);
+            throw new Error(e);
           });
           resolve(status);
         } catch (e) {
-          console.log(e);
-          reject(e);
+          throw new Error(e);
         }
       }
     });
@@ -100,7 +93,7 @@ function query(queryParams, cloudwatchlogs) {
 }
 
 function cloudwatch(cloudwatchlogs) {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve) => {
     // set query intervals
     console.log(`Doing ${firstYear}-${firstMonth + 1}-${firstDay}`);
     const startDate = Date.UTC(firstYear, firstMonth, firstDay, 0, 0, 0, 0);
@@ -117,13 +110,11 @@ function cloudwatch(cloudwatchlogs) {
     // Create Cloudatch connection
     try {
       const queryWait = await query(queryParams, cloudwatchlogs).catch((e) => {
-        console.log(e);
-        reject(e);
+        throw new Error(e);
       });
       resolve(queryWait);
     } catch (e) {
-      console.log(e);
-      reject(e);
+      throw new Error(e);
     }
   });
 }
@@ -153,8 +144,7 @@ async function main() {
   try {
     // get cloudwatch query result
     const result = await cloudwatch(cloudwatchlogs).catch((e) => {
-      console.log(e);
-      throw e;
+      throw new Error(e);
     });
     console.log(result);
 
@@ -206,7 +196,7 @@ async function main() {
     }
   } catch (e) {
     console.log(e);
-    throw e;
+    throw new Error(e);
   }
 //     }
 //   });

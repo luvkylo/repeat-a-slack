@@ -247,18 +247,16 @@ function listAllKeys() {
             currentGz = currentGz.sort();
             currentGz.forEach((key) => {
             // Add promise to the array
-              promises.push(new Promise((resolve, reject) => {
+              promises.push(new Promise((resolve) => {
                 getParams.Key = key;
 
                 // Get the file using key
                 s3.getObject(getParams, (getErr, getData) => {
-                  if (getErr) reject(new Error(getErr));
-                  else {
+                  if (getErr) { throw new Error(getErr); } else {
                   // Uncompress the data returned
                     const buffer = new Buffer.alloc(getData.ContentLength, getData.Body, 'base64');
                     zlib.unzip(buffer, (zipErr, zipData) => {
-                      if (zipErr) reject(new Error(zipErr));
-                      else {
+                      if (zipErr) { throw new Error(zipErr); } else {
                       // Split each data into array when new line
                         let logData = zipData.toString().split('{"messageType"');
 
