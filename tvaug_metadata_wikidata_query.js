@@ -107,7 +107,7 @@ Object.keys(regions).forEach((region) => {
   order by hits desc
   limit 1000;`;
 
-  regions[region].insertKPICmd = 'INSERT INTO tv_aug_kpi_results (start_time, end_time, query_date, type, crid, adult, title_name, description, episode_number, season_number, series_name, region, is_on_demand, hits, api_request_number, video_results) VALUES ';
+  regions[region].insertKPICmd = 'INSERT INTO tv_aug_kpi_results (start_time, end_time, query_date, type, crid, adult, title_name, description, episode_number, season_number, series_name, region, is_on_demand, hits, api_request_number, video_results, video_response_code) VALUES ';
   switch (region) {
     case 'be':
       regions[region].device = '5b64acbb-3751-f6f7';
@@ -157,7 +157,7 @@ function query(region) {
 
         const str = `${region} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}`;
         const bar1 = new cliProgress.SingleBar({ format: str });
-        bar1.start(1000, 0);
+        bar1.start(queryData.rows.length, 0);
 
         // for each crid, call the prd-lgi-api to get wikidata for that item
         queryData.rows.forEach((row) => {
@@ -215,9 +215,10 @@ function query(region) {
             // manipulate the data for the kpi table
             for (let x = 0; x < respond.length; x += 1) {
               let res = false;
+              console.log(respond);
               if (respond[x].data.message === 'no program exists with for the external identifier provided!') {
                 res = true;
-                strArr[x] = `${strArr[x]},-1,''`;
+                strArr[x] = `${strArr[x]},-1,'',${respond[x].data.status}`;
               } else if (respond[x].data.videos) {
                 res = true;
                 let resultsVideos = '';
@@ -229,7 +230,7 @@ function query(region) {
                     resultsVideos += `~${respond[x].data.videos[videosIndex].title}~${respond[x].data.videos[videosIndex].duration}~${respond[x].data.videos[videosIndex].image_url}~${respond[x].data.videos[videosIndex].media_url}`;
                   }
                 }
-                strArr[x] = `${strArr[x]},${respond[x].data.videos.length},'${resultsVideos.replace(/('|")/g, "\\'")}'`;
+                strArr[x] = `${strArr[x]},${respond[x].data.videos.length},'${resultsVideos.replace(/('|")/g, "\\'")}',${respond[x].data.status}`;
               } else {
                 console.log(respond[x]);
               }
