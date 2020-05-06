@@ -3,8 +3,6 @@ require('dotenv').config();
 const Redshift = require('node-redshift');
 const axios = require('axios');
 const cliProgress = require('cli-progress');
-const fs = require('fs');
-const path = require('path');
 const property = require('./property');
 
 const client = property.redshift;
@@ -47,6 +45,7 @@ const regions = {
   be: {}, ch: {}, nl: {}, uk: {}, ie: {},
 };
 
+// an object to store each redshift query
 Object.keys(regions).forEach((region) => {
   regions[region].queryKPICmd = `select
   logs.external_identifier as original_title_id,
@@ -147,6 +146,7 @@ let n = 0;
 
 function query(region) {
   return new Promise((reso, rej) => {
+    // redshift query to get the top 1000 crids
     redshiftClient2.query(regions[region].queryKPICmd, (queryErr, queryData) => {
       i += 1;
       if (queryErr) rej(new Error({ err: queryErr }));
@@ -159,6 +159,7 @@ function query(region) {
         const bar1 = new cliProgress.SingleBar({ format: str });
         bar1.start(1000, 0);
 
+        // for each crid, call the prd-lgi-api to get wikidata for that item
         queryData.rows.forEach((row) => {
           if (p < 1000) {
             const url = `http://prd-lgi-api.frequency.com/api/2.0/programs/videos?video_image=256w144h,solid,rectangle&external_identifier_source=LGI&external_identifier=${row.original_title_id}`;
@@ -200,6 +201,8 @@ function query(region) {
         Promise.all(promises)
           .then((responses) => {
             const respond = [];
+
+            // for each response from the api, make sure there are no error
             responses.forEach((response) => {
               if (response[0] === 'error') {
                 console.log(`Error: ${response[1]}`);
@@ -208,6 +211,8 @@ function query(region) {
                 strArr.push(response[1]);
               }
             });
+
+            // manipulate the data for the kpi table
             for (let x = 0; x < respond.length; x += 1) {
               let res = false;
               if (respond[x].data.message === 'no program exists with for the external identifier provided!') {
@@ -229,6 +234,7 @@ function query(region) {
                 console.log(respond[x]);
               }
 
+              // append the result to the query string
               strArr[x] = `(${strArr[x]})`;
               if (res) {
                 if (x !== strArr.length - 1) { regions[region].insertKPICmd += `${strArr[x]},`; } else { regions[region].insertKPICmd += `${strArr[x]};`; }
@@ -239,10 +245,10 @@ function query(region) {
               rej(new Error({ bar: bar1, err: 'Too Big!' }));
             }
             const md = regions[region].insertKPICmd.replace(/(\r\n|\r|\n)/g, '').replace(/\\\\/g, '\\');
-            fs.appendFileSync(path.join(__dirname, 'example.txt'), md);
             n += 1;
             console.log(`\n${n}`);
 
+            // run the redshift query to insert the top 1000 data
             redshiftClient2.query(md, (e, d) => {
               if (e) {
                 console.log(e);
