@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXIST tv_aug_kpi_results (
     is_on_demand            BOOLEAN,
     hits                    BIGINT,
     api_request_number      BIGINT,
-    video_results           VARCHAR(65535)
+    video_results           VARCHAR(65535),
+    video_response_code     INTEGER
 );
 
 CREATE TABLE IF NOT EXIST tv_aug_content_provider_results (
