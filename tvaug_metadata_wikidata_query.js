@@ -215,7 +215,6 @@ function query(region) {
             // manipulate the data for the kpi table
             for (let x = 0; x < respond.length; x += 1) {
               let res = false;
-              console.log(respond);
               if (respond[x].data.message === 'no program exists with for the external identifier provided!') {
                 res = true;
                 strArr[x] = `${strArr[x]},-1,'',${respond[x].data.status}`;
