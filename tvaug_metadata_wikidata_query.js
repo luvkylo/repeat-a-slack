@@ -52,7 +52,7 @@ Object.keys(regions).forEach((region) => {
   titles.is_adult as adult,
   titles.name as title_name,
   titles.short_synopsis as description,
-  titles.episode_number as episode_number,
+  case when titles.episode_number<0 THEN NULL ELSE titles.episode_number END as episode_number,
   series.season_number as season_number,
   series.series_name as series_name,
   case when titles.episode_number<0 THEN 'movie' ELSE 'series' END as type,
@@ -162,7 +162,7 @@ function query(region) {
         // for each crid, call the prd-lgi-api to get wikidata for that item
         queryData.rows.forEach((row) => {
           if (p < 1000) {
-            const url = `http://prd-lgi-api.frequency.com/api/2.0/programs/videos?video_image=256w144h,solid,rectangle&external_identifier_source=LGI&external_identifier=${row.original_title_id}`;
+            const url = `http://prd-lgi-api.frequency.com/api/2.0/programs/videos?video_image=256w144h,solid,rectangle&external_identifier_source=LGI&external_identifier=${row.original_title_id}&page_size=43`;
             const headers = { 'X-Frequency-DeviceId': regions[region].device, 'X-Frequency-Auth': regions[region].token };
             const original_title_id = row.original_title_id ? row.original_title_id.replace(/('|")/g, "\\'") : row.original_title_id;
             let title_name = row.title_name ? row.title_name.replace(/('|")/g, "\\'") : row.title_name;
