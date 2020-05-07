@@ -206,6 +206,7 @@ function query(region) {
             responses.forEach((response) => {
               if (response[0] === 'error') {
                 console.log(`Error: ${response[1]}`);
+                throw new Error(response[1]);
               } else {
                 respond.push(response[0]);
                 strArr.push(response[1]);
