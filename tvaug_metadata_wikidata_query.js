@@ -179,7 +179,7 @@ function query(region) {
                   headers,
                   muteHttpExceptions: true,
                   validateStatus(status) {
-                    return (status >= 200 && status < 500);
+                    return (status >= 200 && status < 400 && status === 404);
                   },
                 })
                   .then((response) => {
