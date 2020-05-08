@@ -237,7 +237,6 @@ function query(region) {
 
               // append the result to the query string
               strArr[x] = `(${strArr[x]})`;
-              // console.log(strArr[x]);
               if (res) {
                 if (x !== strArr.length - 1) { regions[region].insertKPICmd += `${strArr[x]},`; } else { regions[region].insertKPICmd += `${strArr[x]};`; }
               }
@@ -249,10 +248,6 @@ function query(region) {
             const md = regions[region].insertKPICmd.replace(/(\r\n|\r|\n)/g, '').replace(/\\\\/g, '\\');
             n += 1;
             console.log(`\n${n}`);
-
-            const fs = require('fs');
-            const path = require('path');
-            fs.writeFileSync(path.join(__dirname, 'temp.txt'), md);
 
             // run the redshift query to insert the top 1000 data
             redshiftClient2.query(md, (e, d) => {
