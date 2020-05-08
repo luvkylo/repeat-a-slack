@@ -218,7 +218,7 @@ function query(region) {
               let res = false;
               if (respond[x].data.message === 'no program exists with for the external identifier provided!') {
                 res = true;
-                strArr[x] = `${strArr[x]},-1,'',${respond[x].data.status}`;
+                strArr[x] = `${strArr[x]},-1,'',${respond[x].status}`;
               } else if (respond[x].data.videos) {
                 res = true;
                 let resultsVideos = '';
@@ -230,7 +230,7 @@ function query(region) {
                     resultsVideos += `~${respond[x].data.videos[videosIndex].title}~${respond[x].data.videos[videosIndex].duration}~${respond[x].data.videos[videosIndex].image_url}~${respond[x].data.videos[videosIndex].media_url}`;
                   }
                 }
-                strArr[x] = `${strArr[x]},${respond[x].data.videos.length},'${resultsVideos.replace(/('|")/g, "\\'")}',${respond[x].data.status}`;
+                strArr[x] = `${strArr[x]},${respond[x].data.videos.length},'${resultsVideos.replace(/('|")/g, "\\'")}',${respond[x].status}`;
               } else {
                 console.log(respond[x]);
               }
@@ -253,7 +253,8 @@ function query(region) {
             redshiftClient2.query(md, (e, d) => {
               if (e) {
                 console.log(e);
-                rej(new Error({ bar: bar1, err: e }));
+                bar1.stop();
+                throw new Error(e);
               } else {
                 console.log(`\nAll data written into table for region: ${region}`);
                 if (i === Object.keys(regions).length) {
