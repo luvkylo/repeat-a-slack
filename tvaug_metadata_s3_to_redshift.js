@@ -86,6 +86,9 @@ console.log(`Looking into the bucket prefix: ${bucketParams.Prefix}`);
 
 const errWrite = fs.createWriteStream(path.join(__dirname, 'JSON', 'error.json'), { flags: 'w' });
 
+const isEmpty = (value) => typeof value === 'undefined' || value === null || value === false;
+const isNumeric = (value) => !isEmpty(value) && !Number.isNaN(Number(value));
+
 // Function for completing multipart upload
 function completeMultipartUpload(doneParams) {
   // S3 call
@@ -311,7 +314,8 @@ function writeToFile(region, key) {
                       let jsonStr = objLine.trim().replace('null', '').replace('faalse', 'false').replace('::', ':');
                       jsonStr = jsonStr.replace(',,', ',').replace('": 00,', '": 0,');
                       jsonStr = jsonStr.replace('ffalse', 'false').replace('fallse', 'false').replace('falsse', 'false').replace('falsee', 'false');
-                      jsonStr = jsonStr.replace('ttrue', 'true').replace('trrue', 'true').replace('truue', 'true').replace('truee', 'true');
+                      jsonStr = jsonStr.replace('ttrue', 'true').replace('trrue', 'true').replace('truue', 'true').replace('truee', 'true')
+                        .replace('dellasfalto\\', 'dellasfalto');
                       jsonStr = jsonStr.substring(jsonStr.indexOf('{'));
                       let parse = '';
                       let temp = '';
@@ -355,6 +359,7 @@ function writeToFile(region, key) {
                       || (ti[count] === '"products"' && ele === 'list_price')
                       || (ti[count] === '"titles"' && ele === 'list_price')) {
                             parse[ele] = parse[ele].replace(/\"/g, '');
+                            parse[ele] = isNumeric(parse[ele]) ? parse[ele] : '';
                           }
                         });
 
