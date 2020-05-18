@@ -13,21 +13,24 @@ const redshiftClient2 = new Redshift(client, { rawConnection: true });
 // Get date for file name
 let date = new Date();
 
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth()));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 14));
 
 const endMonth = date.getUTCMonth() + 1;
 const endYear = date.getUTCFullYear();
+const endD = date.getUTCDate();
 
 const endStrMonth = endMonth < 10 ? `0${endMonth}` : endMonth;
-const day = '01';
+const endStrDay = endD < 10 ? `0${endD}` : endD;
 
 date = new Date();
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 21));
 
 const startMonth = date.getUTCMonth() + 1;
 const startYear = date.getUTCFullYear();
+const startD = date.getUTCDate();
 
 const startStrMonth = startMonth < 10 ? `0${startMonth}` : startMonth;
+const startStrDay = startD < 10 ? `0${startD}` : startD;
 
 date = new Date();
 date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
@@ -102,7 +105,7 @@ Object.keys(regions).forEach((region) => {
        ORDER BY title_id, channel_id) AS ranked
     WHERE ranked.title_id_ranked = 1
   ) as events on events.title_id=logs.external_identifier
-  where logs.request_time>='${startStrMonth}-${day}-${startYear}' and logs.request_time<'${endStrMonth}-${day}-${endYear}' and (original_title_id <> '') IS TRUE and vod=TRUE and content_region='${region}'
+  where logs.request_time>='${startStrMonth}-${startStrDay}-${startYear}' and logs.request_time<'${endStrMonth}-${endStrDay}-${endYear}' and (original_title_id <> '') IS TRUE and vod=TRUE and content_region='${region}'
   group by original_title_id, title_name, episode_number, content_region, VOD, season_number, series_name, is_adult, description
   order by hits desc
   limit 1000;`;
@@ -134,9 +137,12 @@ Object.keys(regions).forEach((region) => {
   }
 });
 
-const startDate = `${startStrMonth}/${day}/${startYear}`;
-const endDate = `${endStrMonth}/${day}/${endYear}`;
+const startDate = `${startStrMonth}/${startStrDay}/${startYear}`;
+const endDate = `${endStrMonth}/${endStrDay}/${endYear}`;
 const queryDate = `${queryMonth}/${queryDay}/${queryYear}`;
+
+console.log(`Start Date: ${startDate}`);
+console.log(`End Date: ${endDate}`);
 
 let strArr = [];
 let promises = [];

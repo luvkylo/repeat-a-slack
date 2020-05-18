@@ -6,3 +6,4 @@ property_local.js
 .env
 manifest.json
 schema.sql
+cw_origin_usage_metric_to_redshift.js
