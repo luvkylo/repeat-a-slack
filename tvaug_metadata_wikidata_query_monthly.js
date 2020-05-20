@@ -13,7 +13,7 @@ const redshiftClient2 = new Redshift(client, { rawConnection: true });
 // Get date for file name
 let date = new Date();
 
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth()));
 
 const endMonth = date.getUTCMonth() + 1;
 const endYear = date.getUTCFullYear();
@@ -22,7 +22,7 @@ const endStrMonth = endMonth < 10 ? `0${endMonth}` : endMonth;
 const endStrDay = '01';
 
 date = new Date();
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1));
 
 const startMonth = date.getUTCMonth() + 1;
 const startYear = date.getUTCFullYear();
@@ -136,7 +136,7 @@ Object.keys(regions).forEach((region) => {
 });
 
 date = new Date();
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1) - 1);
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth()) - 1);
 
 const eMonth = date.getUTCMonth() + 1;
 const eYear = date.getUTCFullYear();
