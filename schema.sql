@@ -57,3 +57,17 @@ CREATE TABLE IF NOT EXIST cwl_mediatailor_fillrate (
     origin_avail_duration_sum        BIGINT,
     num_ads_sum             BIGINT
 );
+
+CREATE TABLE IF NOT EXIST cw_ad_usage_metric (
+    timestamp               TIMESTAMPZ,
+    label                   VARCHAR,
+    channel                 VARCHAR(65535),
+    count                   BIGINT
+);
+
+CREATE TABLE IF NOT EXIST cw_origin_usage_metric (
+    timestamp               TIMESTAMPZ,
+    label                   VARCHAR,
+    channel                 VARCHAR(65535),
+    bytes                   BIGINT
+);

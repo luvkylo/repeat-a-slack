@@ -13,24 +13,22 @@ const redshiftClient2 = new Redshift(client, { rawConnection: true });
 // Get date for file name
 let date = new Date();
 
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1));
 
 const endMonth = date.getUTCMonth() + 1;
 const endYear = date.getUTCFullYear();
-const endD = date.getUTCDate();
 
 const endStrMonth = endMonth < 10 ? `0${endMonth}` : endMonth;
-const endStrDay = endD < 10 ? `0${endD}` : endD;
+const endStrDay = '01';
 
 date = new Date();
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 7));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2));
 
 const startMonth = date.getUTCMonth() + 1;
 const startYear = date.getUTCFullYear();
-const startD = date.getUTCDate();
 
 const startStrMonth = startMonth < 10 ? `0${startMonth}` : startMonth;
-const startStrDay = startD < 10 ? `0${startD}` : startD;
+const startStrDay = '01';
 
 date = new Date();
 date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
@@ -110,7 +108,7 @@ Object.keys(regions).forEach((region) => {
   order by hits desc
   limit 1000;`;
 
-  regions[region].insertKPICmd = 'INSERT INTO tv_aug_kpi_results (start_time, end_time, query_date, type, crid, adult, title_name, description, episode_number, season_number, series_name, region, is_on_demand, hits, api_request_number, video_results, video_response_code) VALUES ';
+  regions[region].insertKPICmd = 'INSERT INTO tv_aug_kpi_results_monthly (start_time, end_time, query_date, type, crid, adult, title_name, description, episode_number, season_number, series_name, region, is_on_demand, hits, api_request_number, video_results, video_response_code) VALUES ';
   switch (region) {
     case 'be':
       regions[region].device = '5b64acbb-3751-f6f7';
@@ -137,12 +135,23 @@ Object.keys(regions).forEach((region) => {
   }
 });
 
+date = new Date();
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1) - 1);
+
+const eMonth = date.getUTCMonth() + 1;
+const eYear = date.getUTCFullYear();
+
+const eStrMonth = eMonth < 10 ? `0${eMonth}` : eMonth;
+const eStrDay = date.getUTCDate();
+
 const startDate = `${startStrMonth}/${startStrDay}/${startYear}`;
 const endDate = `${endStrMonth}/${endStrDay}/${endYear}`;
+const eDate = `${eStrMonth}/${eStrDay}/${eYear}`;
 const queryDate = `${queryMonth}/${queryDay}/${queryYear}`;
 
 console.log(`Start Date: ${startDate}`);
 console.log(`End Date: ${endDate}`);
+console.log(`Log end Date: ${eDate}`);
 
 let strArr = [];
 let promises = [];
@@ -177,7 +186,7 @@ function query(region) {
             description = description === 'null' ? '' : `'${description}'`;
             let series_name = row.series_name ? row.series_name.replace(/('|")/g, "\\'") : row.series_name;
             series_name = series_name === 'null' ? '' : `'${series_name}'`;
-            const temp = `'${startDate}','${endDate}','${queryDate}','${row.type}','${original_title_id}',${row.adult},${title_name},${description},${row.episode_number},${row.season_number},${series_name},'${row.content_region}',${row.vod},${row.hits}`;
+            const temp = `'${startDate}','${eDate}','${queryDate}','${row.type}','${original_title_id}',${row.adult},${title_name},${description},${row.episode_number},${row.season_number},${series_name},'${row.content_region}',${row.vod},${row.hits}`;
 
             promises.push(new Promise((resolve) => {
               setTimeout(() => {
