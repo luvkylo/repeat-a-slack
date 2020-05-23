@@ -710,11 +710,17 @@ async function listAllKeys() {
                 console.log('File merged');
 
                 // upload the first level object JSON to s3
-                nameArr.push(outputFile);
                 const done = await uploadFile(file).catch((e) => {
                   console.log(`Error: ${e}`);
                   throw new Error(e);
                 });
+                try {
+                  fs.unlinkSync(outputFile);
+                  console.log(`File removed: ${outputFile}`);
+                } catch (fileErr) {
+                  console.log(`Error: ${fileErr}`);
+                  throw new Error(fileErr);
+                }
                 console.log(done);
               } catch (error) {
                 console.log(`Error: ${error}`);
