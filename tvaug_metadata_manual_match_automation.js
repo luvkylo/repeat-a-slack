@@ -3,6 +3,8 @@ require('dotenv').config();
 const Redshift = require('node-redshift');
 const axios = require('axios');
 const cliProgress = require('cli-progress');
+const fs = require('fs');
+const path = require('path');
 const property = require('./property');
 
 const client = property.redshift;
@@ -13,7 +15,7 @@ const redshiftClient2 = new Redshift(client, { rawConnection: true });
 // Get date for file name
 let date = new Date();
 
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 3));
 
 const endMonth = date.getUTCMonth() + 1;
 const endYear = date.getUTCFullYear();
@@ -23,7 +25,7 @@ const endStrMonth = endMonth < 10 ? `0${endMonth}` : endMonth;
 const endStrDay = endD < 10 ? `0${endD}` : endD;
 
 date = new Date();
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 7));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 10));
 
 const startMonth = date.getUTCMonth() + 1;
 const startYear = date.getUTCFullYear();
@@ -52,6 +54,7 @@ const regions = {
 Object.keys(regions).forEach((region) => {
   regions[region].queryKPICmd = `select
   logs.external_identifier as original_title_id,
+  logs.http_code as http_code,
   titles.is_adult as adult,
   titles.name as title_name,
   titles.short_synopsis as description,
@@ -105,36 +108,10 @@ Object.keys(regions).forEach((region) => {
        ORDER BY title_id, channel_id) AS ranked
     WHERE ranked.title_id_ranked = 1
   ) as events on events.title_id=logs.external_identifier
-  where logs.request_time>='${startStrMonth}-${startStrDay}-${startYear}' and logs.request_time<'${endStrMonth}-${endStrDay}-${endYear}' and (original_title_id <> '') IS TRUE and vod=TRUE and content_region='${region}'
-  group by original_title_id, title_name, episode_number, content_region, VOD, season_number, series_name, is_adult, description
+  where logs.request_time>='${startStrMonth}-${startStrDay}-${startYear}' and logs.request_time<'${endStrMonth}-${endStrDay}-${endYear}' and (original_title_id <> '') IS TRUE and vod IS TRUE and content_region='${region}' and http_code='404'
+  group by original_title_id, title_name, episode_number, content_region, VOD, season_number, series_name, is_adult, description, http_code
   order by hits desc
-  limit 1000;`;
-
-  regions[region].insertKPICmd = 'INSERT INTO tv_aug_kpi_results (start_time, end_time, query_date, type, crid, adult, title_name, description, episode_number, season_number, series_name, region, is_on_demand, hits, api_request_number, video_results, video_response_code) VALUES ';
-  switch (region) {
-    case 'be':
-      regions[region].device = '5b64acbb-3751-f6f7';
-      regions[region].token = 'aba8b1f9-6130-4a35-9b25-60177bfe2723';
-      break;
-    case 'ch':
-      regions[region].device = '5b64ad19-029d-ef3e';
-      regions[region].token = '0c739cd3-10af-42b3-a957-c8c27fc43690';
-      break;
-    case 'nl':
-      regions[region].device = '5c544342-6a5b-9517';
-      regions[region].token = '2afc1316-f333-4c28-8dc3-67737cf74a49';
-      break;
-    case 'uk':
-      regions[region].device = '5c54423c-38ed-4915';
-      regions[region].token = '00c315f4-82e7-4b55-bbab-9cdc39cc6308';
-      break;
-    case 'ie':
-      regions[region].device = '5c5442d4-5cb7-6902';
-      regions[region].token = '5d4960b9-cf0c-463a-a5fa-2e682240b13d';
-      break;
-    default:
-      break;
-  }
+  limit 5000;`;
 });
 
 const startDate = `${startStrMonth}/${startStrDay}/${startYear}`;
@@ -144,11 +121,9 @@ const queryDate = `${queryMonth}/${queryDay}/${queryYear}`;
 console.log(`Start Date: ${startDate}`);
 console.log(`End Date: ${endDate}`);
 
-let strArr = [];
 let promises = [];
 
 let i = 0;
-let n = 0;
 
 function query(region) {
   return new Promise((reso, rej) => {
@@ -157,121 +132,159 @@ function query(region) {
       i += 1;
       if (queryErr) rej(new Error({ err: queryErr }));
       else {
-        console.log(Buffer.byteLength(JSON.stringify(queryData.rows), 'utf8'));
+        const filename = `tvaug_metadata_manual_match_${region}_${startDate.replace(/\//g, '')}_to_${endDate.replace(/\//g, '')}.csv`;
+        const filepath = path.join(__dirname, 'JSON', filename);
+        const stream = fs.createWriteStream(filepath, { flags: 'w' });
+        console.log(`Writing into file: ${filepath}`);
+
+        stream.write('start_date,end_date,query_date,region,hits,title_name,type,series_name,season_number,episode_number,description,crid,imdb_id,imdb_title,wiki_id\n');
+
         console.log(`Got region: ${region}`);
-        let p = 0;
 
         const str = `${region} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}`;
         const bar1 = new cliProgress.SingleBar({ format: str });
         bar1.start(queryData.rows.length, 0);
 
+        let p = 0;
+
         // for each crid, call the prd-lgi-api to get wikidata for that item
         queryData.rows.forEach((row) => {
-          if (p < 1000) {
-            const url = `http://prd-lgi-api.frequency.com/api/2.0/programs/videos?video_image=256w144h,solid,rectangle&external_identifier_source=LGI&external_identifier=${row.original_title_id}&page_size=43`;
-            const headers = { 'X-Frequency-DeviceId': regions[region].device, 'X-Frequency-Auth': regions[region].token };
-            const original_title_id = row.original_title_id ? row.original_title_id.replace(/('|")/g, "\\'") : row.original_title_id;
-            let title_name = row.title_name ? row.title_name.replace(/('|")/g, "\\'") : row.title_name;
-            title_name = title_name === 'null' ? '' : `'${title_name}'`;
-            let description = row.description ? row.description.replace(/('|")/g, "\\'") : row.description;
-            description = description === 'null' ? '' : `'${description}'`;
-            let series_name = row.series_name ? row.series_name.replace(/('|")/g, "\\'") : row.series_name;
-            series_name = series_name === 'null' ? '' : `'${series_name}'`;
-            const temp = `'${startDate}','${endDate}','${queryDate}','${row.type}','${original_title_id}',${row.adult},${title_name},${description},${row.episode_number},${row.season_number},${series_name},'${row.content_region}',${row.vod},${row.hits}`;
+          const original_title_id = row.original_title_id ? row.original_title_id.replace(/('|")/g, "\\'") : row.original_title_id;
+          let title_name = row.title_name ? row.title_name.replace(/('|")/g, "\\'") : row.title_name;
+          title_name = title_name === null ? '' : `"${title_name}"`;
+          let description = row.description ? row.description.replace(/('|")/g, "\\'") : row.description;
+          description = description === null ? '' : `"${description}"`;
+          let series_name = row.series_name ? row.series_name.replace(/('|")/g, "\\'") : row.series_name;
+          series_name = series_name === null ? '' : `"${series_name}"`;
+          const episode_number = row.episode_number === null ? '' : row.episode_number;
+          const season_number = row.season_number === null ? '' : row.season_number;
+          let temp = `${startDate},${endDate},${queryDate},"${row.content_region}",${row.hits},${title_name},"${row.type}",${series_name},${episode_number},${season_number},${description},"${original_title_id.replace("'", '')}"`;
+          const imdbUrl = `https://imdb-internet-movie-database-unofficial.p.rapidapi.com/search/${encodeURIComponent(title_name.replace(/&/g, '').replace(/%/g, '').replace(/#/g, '').replace(/\./g, '')
+            .replace(/"/g, '')
+            .replace(/\\/g, '')
+            .replace(/\//g, ''))}`;
+          const imdbHeaders = {
+            'x-rapidapi-host': 'imdb-internet-movie-database-unofficial.p.rapidapi.com',
+            'x-rapidapi-key': 'QcF3JtuVDHmshivO9b1f7ji4jb7Fp1AJQlGjsnJ9OfB3RZ56N8',
+          };
 
-            promises.push(new Promise((resolve) => {
-              setTimeout(() => {
-                axios.get(url, {
-                  headers,
-                  muteHttpExceptions: true,
-                  validateStatus(status) {
-                    return [200, 404].indexOf(status) !== -1;
-                  },
+
+          promises.push(new Promise((resolve) => {
+            setTimeout(() => {
+              axios.get(imdbUrl, {
+                headers: imdbHeaders,
+                muteHttpExceptions: false,
+              })
+                .then((response) => {
+                  const { data } = response;
+                  let imdbID = '';
+                  let imdbTitle = '';
+                  let wikiID = '';
+
+                  if (data.titles.length > 0) {
+                    for (const title of data.titles) {
+                      if (title_name.replace(/"|#|\\/g, '').toLowerCase().includes(title.title.toLowerCase()) || title.title.toLowerCase().includes(title_name.replace(/"|#|\\/g, '').toLowerCase())) {
+                        imdbID = title.id;
+                        imdbTitle = title.title;
+                        break;
+                      }
+                    }
+                  }
+
+
+                  temp += `,${imdbID},"${imdbTitle}"`;
+
+                  if (imdbTitle !== '') {
+                    const wikiUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(imdbTitle)}&format=json&language=en&uselang=en&type=item`;
+
+                    axios.get(wikiUrl, {
+                      muteHttpExceptions: false,
+                    })
+                      .then((resp) => {
+                        const wikidata = resp.data;
+                        let year = 0;
+
+                        let tempWikiId = '';
+
+                        if (wikidata.search.length === 1) {
+                          wikiID = wikidata.search[0].id;
+                        } else {
+                          for (const item of wikidata.search) {
+                            if (row.type === 'movie' && item.description) {
+                              if (item.description.includes('film')) {
+                                tempWikiId = item.id;
+                                const yearExtract = item.description.match(/\d{4}/);
+                                if (yearExtract && +yearExtract[0] > year) {
+                                  year = +yearExtract[0];
+                                  wikiID = item.id;
+                                }
+                              }
+                            } else if (row.type === 'series' && item.description) {
+                              if (item.description.includes('series')) {
+                                tempWikiId = item.id;
+                                const yearExtract = item.description.match(/\d{4}/);
+                                if (yearExtract && +yearExtract[0] > year) {
+                                  year = +yearExtract[0];
+                                  wikiID = item.id;
+                                }
+                              }
+                            }
+                          }
+                        }
+
+
+                        if (wikiID === '') {
+                          wikiID = tempWikiId;
+                        }
+
+                        temp += `,${wikiID}`;
+                        stream.write(`${temp}\n`);
+                        bar1.increment();
+                        resolve([`Completed for title: ${title_name}`]);
+                      })
+                      .catch((err) => {
+                        bar1.increment();
+                        console.log(err);
+                        resolve(['error', title_name + err]);
+                      });
+                  } else {
+                    temp += `,${wikiID}`;
+                    stream.write(`${temp}\n`);
+                    bar1.increment();
+                    resolve([`Completed for title: ${title_name}`]);
+                  }
                 })
-                  .then((response) => {
-                    bar1.increment();
-                    resolve([response, temp]);
-                  })
-                  .catch((err) => {
-                    bar1.increment();
-                    throw new Error(err);
-                  });
-              }, p * 500);
-            }).catch((err) => {
-              throw new Error(err);
-            }));
-          }
+                .catch((err) => {
+                  bar1.increment();
+                  console.log(err);
+                  resolve(['error', title_name + err]);
+                });
+            }, p * 250);
+          }).catch((err) => {
+            console.log(err);
+            throw new Error(err);
+          }));
           p += 1;
         });
 
         Promise.all(promises)
           .then((responses) => {
-            const respond = [];
-
             // for each response from the api, make sure there are no error
             responses.forEach((response) => {
               if (response[0] === 'error') {
                 console.log(`Error: ${response[1]}`);
                 throw new Error(response[1]);
-              } else {
-                respond.push(response[0]);
-                strArr.push(response[1]);
               }
             });
 
-            // manipulate the data for the kpi table
-            for (let x = 0; x < respond.length; x += 1) {
-              let res = false;
-              if (respond[x].data.message === 'no program exists with for the external identifier provided!') {
-                res = true;
-                strArr[x] = `${strArr[x]},-1,'',${respond[x].status}`;
-              } else if (respond[x].data.videos) {
-                res = true;
-                let resultsVideos = '';
-                for (let videosIndex = 0; videosIndex < Math.min(5, respond[x]
-                  .data.videos.length); videosIndex += 1) {
-                  if (resultsVideos === '') {
-                    resultsVideos = `${respond[x].data.videos[videosIndex].title}~${respond[x].data.videos[videosIndex].duration}~${respond[x].data.videos[videosIndex].image_url}~${respond[x].data.videos[videosIndex].media_url}`;
-                  } else {
-                    resultsVideos += `~${respond[x].data.videos[videosIndex].title}~${respond[x].data.videos[videosIndex].duration}~${respond[x].data.videos[videosIndex].image_url}~${respond[x].data.videos[videosIndex].media_url}`;
-                  }
-                }
-                strArr[x] = `${strArr[x]},${respond[x].data.videos.length},'${resultsVideos.replace(/('|")/g, "\\'")}',${respond[x].status}`;
+            stream.end(() => {
+              if (i === Object.keys(regions).length) {
+                redshiftClient2.close(() => {
+                  console.log('\nclosed db');
+                  reso({ bar: bar1, data: 'Completed' });
+                });
               } else {
-                console.log(respond[x]);
-              }
-
-              // append the result to the query string
-              strArr[x] = `(${strArr[x]})`;
-              if (res) {
-                if (x !== strArr.length - 1) { regions[region].insertKPICmd += `${strArr[x]},`; } else { regions[region].insertKPICmd += `${strArr[x]};`; }
-              }
-            }
-
-            if (Buffer.byteLength(regions[region].insertKPICmd, 'utf8') >= 16777216) {
-              rej(new Error({ bar: bar1, err: 'Too Big!' }));
-            }
-            const md = regions[region].insertKPICmd.replace(/(\r\n|\r|\n)/g, '').replace(/\\\\/g, '\\');
-            n += 1;
-            console.log(`\n${n}`);
-
-            // run the redshift query to insert the top 1000 data
-            redshiftClient2.query(md, (e, d) => {
-              if (e) {
-                console.log(e);
-                bar1.stop();
-                throw new Error(e);
-              } else {
-                console.log(`\nAll data written into table for region: ${region}`);
-                if (i === Object.keys(regions).length) {
-                  redshiftClient2.close(() => {
-                    console.log('\nclosed db');
-                    reso({ bar: bar1, data: d });
-                  });
-                } else {
-                  reso({ bar: bar1, data: d });
-                }
-                // reso({ bar: bar1, data: d });
+                reso({ bar: bar1, data: 'Completed' });
               }
             });
           })
@@ -298,7 +311,6 @@ try {
     else {
       console.log('Connected to Redshift!');
       for (let x = 0; x < Object.keys(regions).length; x += 1) {
-        strArr = [];
         promises = [];
         console.log(`\nquerying region: ${Object.keys(regions)[x]}`);
         try {
