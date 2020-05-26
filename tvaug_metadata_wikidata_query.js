@@ -194,7 +194,7 @@ function query(region) {
                   })
                   .catch((err) => {
                     bar1.increment();
-                    resolve(['error', err]);
+                    throw new Error(err);
                   });
               }, p * 500);
             }).catch((err) => {

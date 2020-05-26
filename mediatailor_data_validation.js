@@ -151,20 +151,22 @@ function cloudwatch() {
           let queryWait = await query(queryParams).catch((e) => {
             throw new Error(e);
           });
-          while (queryWait === 'Too much record') {
-          // if too much log stream, cut query interval by half
-            console.log(queryWait);
-            stop = (start + ((start - stop) / 2)) - 1;
-            queryParams.endTime = stop;
-            queryWait = await query(queryParams).catch((e) => {
-              throw new Error(e);
-            });
-            progress.increment(((start - stop) / 2) / 60000);
-            progressDate += ((start - stop) / 2);
-          }
 
-          // increase start time by 60 seconds
-          progressDate += 60000;
+          if (queryWait !== 'Too much record') {
+            progressDate += 60000;
+          } else {
+            while (queryWait === 'Too much record') {
+              // if too much log stream, cut query interval by half
+              console.log(queryWait);
+              stop = (start + ((start - stop) / 2)) - 1;
+              queryParams.endTime = stop;
+              queryWait = await query(queryParams).catch((e) => {
+                throw new Error(e);
+              });
+              progress.increment(((start - stop) / 2) / 60000);
+              progressDate += ((start - stop) / 2);
+            }
+          }
           progress.increment();
         } catch (err) {
           throw new Error(err);
