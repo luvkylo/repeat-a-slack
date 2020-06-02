@@ -43,7 +43,7 @@ const queryDay = qDay < 10 ? `0${qDay}` : qDay;
 
 const regions = {
   // be: {},
-  be: {}, ch: {}, nl: {}, uk: {}, ie: {},
+  be: {}, ch: {}, uk: {}, ie: {},
 };
 
 // an object to store each redshift query
@@ -111,24 +111,24 @@ Object.keys(regions).forEach((region) => {
   regions[region].insertKPICmd = 'INSERT INTO tv_aug_kpi_results_monthly (start_time, end_time, query_date, type, crid, adult, title_name, description, episode_number, season_number, series_name, region, is_on_demand, hits, api_request_number, video_results, video_response_code) VALUES ';
   switch (region) {
     case 'be':
-      regions[region].device = '5b64acbb-3751-f6f7';
-      regions[region].token = 'aba8b1f9-6130-4a35-9b25-60177bfe2723';
+      regions[region].device = '5c95fb80-b77a-0406';
+      regions[region].token = '67f90817-2f61-44f8-8ec5-f72f5cb96efc';
       break;
     case 'ch':
-      regions[region].device = '5b64ad19-029d-ef3e';
-      regions[region].token = '0c739cd3-10af-42b3-a957-c8c27fc43690';
+      regions[region].device = '5c95fba6-90e7-d178';
+      regions[region].token = '451cd55c-6eb0-4b4e-a9c8-85c27eb5569c';
       break;
-    case 'nl':
-      regions[region].device = '5c544342-6a5b-9517';
-      regions[region].token = '2afc1316-f333-4c28-8dc3-67737cf74a49';
-      break;
+    // case 'nl':
+    //   regions[region].device = '5c544342-6a5b-9517';
+    //   regions[region].token = '2afc1316-f333-4c28-8dc3-67737cf74a49';
+    //   break;
     case 'uk':
-      regions[region].device = '5c54423c-38ed-4915';
-      regions[region].token = '00c315f4-82e7-4b55-bbab-9cdc39cc6308';
+      regions[region].device = '5c95fb5c-b7cf-1e27';
+      regions[region].token = '2b6e0fbf-ea1e-461b-8d37-34b03d0c02a2';
       break;
     case 'ie':
-      regions[region].device = '5c5442d4-5cb7-6902';
-      regions[region].token = '5d4960b9-cf0c-463a-a5fa-2e682240b13d';
+      regions[region].device = '5c95fb39-498d-5c12';
+      regions[region].token = '800862e1-2997-4068-9bf0-e6353cbe56a7';
       break;
     default:
       break;
@@ -202,7 +202,7 @@ function query(region) {
                     resolve([response, temp]);
                   })
                   .catch((err) => {
-                    bar1.increment();
+                    bar1.stop();
                     throw new Error(err);
                   });
               }, p * 500);
