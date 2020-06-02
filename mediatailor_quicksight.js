@@ -21,7 +21,7 @@ AWS.config.update({ region: 'eu-central-1' });
 let date = new Date();
 
 date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
-  date.getUTCDate() - process.env.DAY, date.getUTCHours(), date.getUTCMinutes()));
+  date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes()));
 
 const lastMonth = new Date();
 lastMonth.setUTCDate(1);
