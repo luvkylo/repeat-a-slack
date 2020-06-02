@@ -101,7 +101,7 @@ function cloudwatch(cloudwatchlogs) {
 
     const queryParams = {
       startTime: startDate,
-      queryString: 'stats SUM(avail.filledDuration), SUM(avail.originAvailDuration), SUM(avail.numAds) by bin(1d), originId | filter eventType like /FILLED/',
+      queryString: 'stats SUM(avail.filledDuration), SUM(avail.originAvailDuration), SUM(avail.numAds) by bin(1m), originId | filter eventType like /FILLED/',
       endTime: endDate,
       limit: 10000,
       logGroupName: 'MediaTailor/AdDecisionServerInteractions',
