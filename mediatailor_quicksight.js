@@ -20,8 +20,8 @@ AWS.config.update({ region: 'eu-central-1' });
 // Get date for file name
 let date = new Date();
 
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(),
-  date.getUTCHours(), date.getUTCMinutes()));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
+  date.getUTCDate() - process.env.DAY, date.getUTCHours(), date.getUTCMinutes()));
 
 const lastMonth = new Date();
 lastMonth.setUTCDate(1);
@@ -348,11 +348,11 @@ function listAllKeys() {
                             if (jsonObj.vastResponse
                               && Array.isArray(jsonObj.vastResponse.vastAds)) {
                               jsonObj.vastResponse.vastAds.forEach((ad) => {
-                                vast_ad_ids.push(ad.vastAdId);
-                                ad_systems.push(ad.adSystem);
-                                ad_titles.push(ad.adTitle);
-                                creative_ids.push(ad.creativeId);
-                                creative_ad_ids.push(ad.creativeAdId);
+                                vast_ad_ids.push(`'${ad.vastAdId.toString()}'`);
+                                ad_systems.push(`'${ad.adSystem}'`);
+                                ad_titles.push(`'${ad.adTitle}'`);
+                                creative_ids.push(`'${ad.creativeId.toString()}'`);
+                                creative_ad_ids.push(`'${ad.creativeAdId.toString()}'`);
                               });
 
                               vast_ad_ids = `"[${vast_ad_ids.join()}]"`;
@@ -361,11 +361,11 @@ function listAllKeys() {
                               creative_ids = `"[${creative_ids.join()}]"`;
                               creative_ad_ids = `"[${creative_ad_ids.join()}]"`;
                             } else if (jsonObj.vastAd) {
-                              vast_ad_ids = jsonObj.vastAd.vastAdId;
-                              ad_systems = jsonObj.vastAd.adSystem;
-                              ad_titles = jsonObj.vastAd.adTitle;
-                              creative_ids = jsonObj.vastAd.creativeId;
-                              creative_ad_ids = jsonObj.vastAd.creativeAdId;
+                              vast_ad_ids = `"['${jsonObj.vastAd.vastAdId.toString()}']"`;
+                              ad_systems = `"['${jsonObj.vastAd.adSystem}']"`;
+                              ad_titles = `"['${jsonObj.vastAd.adTitle}']"`;
+                              creative_ids = `"['${jsonObj.vastAd.creativeId.toString()}']"`;
+                              creative_ad_ids = `"['${jsonObj.vastAd.creativeAdId.toString()}']"`;
                             } else {
                               vast_ad_ids = '';
                               ad_systems = '';
