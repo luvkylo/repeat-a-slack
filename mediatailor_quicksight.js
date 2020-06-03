@@ -20,8 +20,8 @@ AWS.config.update({ region: 'eu-central-1' });
 // Get date for file name
 let date = new Date();
 
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(),
-  date.getUTCHours(), date.getUTCMinutes()));
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
+  date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes()));
 
 const lastMonth = new Date();
 lastMonth.setUTCDate(1);
@@ -48,7 +48,7 @@ const fileKey = fileName;
 const startTime = new Date();
 let partNum = 0;
 const partSize = 1024 * 1024 * 50;
-// 50 represent 50 MB, the AWS recommand file size to be used in multipart upload
+// 50 represent 50 MB, the AWS recommends file size to be used in multipart upload
 const maxUploadTries = 3;
 const multipartMap = {
   Parts: [],
@@ -80,7 +80,7 @@ const multiPartParams = {
 
 console.log(`Looking into the bucket prefix: ${bucketParams.Prefix}`);
 
-// Function for completeing multipart upload
+// Function for completing multipart upload
 function completeMultipartUpload(doneParams) {
   try {
   // S3 call
@@ -247,18 +247,16 @@ function listAllKeys() {
             currentGz = currentGz.sort();
             currentGz.forEach((key) => {
             // Add promise to the array
-              promises.push(new Promise((resolve, reject) => {
+              promises.push(new Promise((resolve) => {
                 getParams.Key = key;
 
                 // Get the file using key
                 s3.getObject(getParams, (getErr, getData) => {
-                  if (getErr) reject(new Error(getErr));
-                  else {
+                  if (getErr) { throw new Error(getErr); } else {
                   // Uncompress the data returned
                     const buffer = new Buffer.alloc(getData.ContentLength, getData.Body, 'base64');
                     zlib.unzip(buffer, (zipErr, zipData) => {
-                      if (zipErr) reject(new Error(zipErr));
-                      else {
+                      if (zipErr) { throw new Error(zipErr); } else {
                       // Split each data into array when new line
                         let logData = zipData.toString().split('{"messageType"');
 
@@ -321,10 +319,24 @@ function listAllKeys() {
                             const session_type = jsonObj.sessionType.trim();
                             const beacon_info_beacon_http_response_code = ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconHttpResponseCode !== 'undefined') ? jsonObj.beaconInfo.beaconHttpResponseCode : '');
                             const beacon_info_beacon_uri = ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? `"${jsonObj.beaconInfo.beaconUri.trim().replace(/\"/g, "'")}"` : '');
-                            const beacon_info_headers_0_name = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].name !== 'undefined') ? `"${jsonObj.beaconInfo.headers[0].name.trim().replace(/\"/g, "'")}"` : '');
-                            const beacon_info_headers_0_value = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].value !== 'undefined') ? `"${jsonObj.beaconInfo.headers[0].value.trim().replace(/\"/g, "'")}"` : '');
-                            const beacon_info_headers_1_name = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].name !== 'undefined') ? `"${jsonObj.beaconInfo.headers[1].name.trim().replace(/\"/g, "'")}"` : '');
-                            const beacon_info_headers_1_value = ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].value !== 'undefined') ? `"${jsonObj.beaconInfo.headers[1].value.trim().replace(/\"/g, "'")}"` : '');
+                            let beacon_info_headers_0_name = '';
+                            let beacon_info_headers_0_value = '';
+                            let beacon_info_headers_1_name = '';
+                            let beacon_info_headers_1_value = '';
+                            if (jsonObj.beaconInfo && jsonObj.beaconInfo.headers) {
+                              jsonObj.beaconInfo.headers.forEach((header) => {
+                                if (header.name) {
+                                  if (header.name === 'User-Agent') {
+                                    beacon_info_headers_0_name = `"${header.name.trim().replace(/\"/g, "'")}"`;
+                                    beacon_info_headers_0_value = `"${header.value.trim().replace(/\"/g, "'")}"`;
+                                  } else if (header.name === 'X-Forwarded-For') {
+                                    beacon_info_headers_1_name = `"${header.name.trim().replace(/\"/g, "'")}"`;
+                                    beacon_info_headers_1_value = `"${header.value.trim().replace(/\"/g, "'")}"`;
+                                  }
+                                }
+                              });
+                            }
+
                             const beacon_info_tracking_event = ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.trackingEvent !== 'undefined') ? `"${jsonObj.beaconInfo.trackingEvent.trim().replace(/\"/g, "'")}"` : '');
 
                             let vast_ad_ids = [];
@@ -336,11 +348,11 @@ function listAllKeys() {
                             if (jsonObj.vastResponse
                               && Array.isArray(jsonObj.vastResponse.vastAds)) {
                               jsonObj.vastResponse.vastAds.forEach((ad) => {
-                                vast_ad_ids.push(ad.vastAdId);
-                                ad_systems.push(ad.adSystem);
-                                ad_titles.push(ad.adTitle);
-                                creative_ids.push(ad.creativeId);
-                                creative_ad_ids.push(ad.creativeAdId);
+                                vast_ad_ids.push(`'${ad.vastAdId.toString()}'`);
+                                ad_systems.push(`'${ad.adSystem}'`);
+                                ad_titles.push(`'${ad.adTitle}'`);
+                                creative_ids.push(`'${ad.creativeId.toString()}'`);
+                                creative_ad_ids.push(`'${ad.creativeAdId.toString()}'`);
                               });
 
                               vast_ad_ids = `"[${vast_ad_ids.join()}]"`;
@@ -349,11 +361,11 @@ function listAllKeys() {
                               creative_ids = `"[${creative_ids.join()}]"`;
                               creative_ad_ids = `"[${creative_ad_ids.join()}]"`;
                             } else if (jsonObj.vastAd) {
-                              vast_ad_ids = jsonObj.vastAd.vastAdId;
-                              ad_systems = jsonObj.vastAd.adSystem;
-                              ad_titles = jsonObj.vastAd.adTitle;
-                              creative_ids = jsonObj.vastAd.creativeId;
-                              creative_ad_ids = jsonObj.vastAd.creativeAdId;
+                              vast_ad_ids = `"['${jsonObj.vastAd.vastAdId.toString()}']"`;
+                              ad_systems = `"['${jsonObj.vastAd.adSystem}']"`;
+                              ad_titles = `"['${jsonObj.vastAd.adTitle}']"`;
+                              creative_ids = `"['${jsonObj.vastAd.creativeId.toString()}']"`;
+                              creative_ad_ids = `"['${jsonObj.vastAd.creativeAdId.toString()}']"`;
                             } else {
                               vast_ad_ids = '';
                               ad_systems = '';
@@ -553,10 +565,7 @@ function listAllKeys() {
                     .catch((err) => {
                       throw new Error('Error: ', err);
                     });
-                })
-                  .catch((error) => {
-                    throw new Error(error);
-                  });
+                });
               })
               .catch((promErr) => {
                 throw new Error(promErr);

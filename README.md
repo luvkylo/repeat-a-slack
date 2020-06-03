@@ -67,5 +67,20 @@ COPY cwl_mediatailor_ad_decision_server_interactions from 's3://prd-freq-report-
 ```
 
 ## TV Augmentation
+-------------------------------
+### Data Flow
+1. LGI pushes raw JSON file into our s3 bucket daily
+2. The script download all files and clean the data
+3. The script then split the data into their first level objects (i.e. events, channels, contents, credits, genres, pictures, products, series, titles)
+4. The script then upload them to another s3 bucket
+5. The script will then run a COPY command to ingest those data into Redshift
+Confluence link:
+https://docs.frequency.com/display/CO/TV_Aug+Metadata+%28LGI%29+From+S3+to+Redshift
+------------------------------
+### Github Reporsitory for QA
+```
+https://github.com/frequency/frequency-data-analyze/tree/LGI_metadata_dev
+```
+The scripts are run in weekly on Monday 1AM UTC.
 
 ## Fastly
