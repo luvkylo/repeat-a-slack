@@ -27,7 +27,7 @@ let completed = '';
 
 s3.getObject({
   Bucket: property.aws.toBucketName,
-  Key: 'completedRecord.txt',
+  Key: 'prd_completedRecord.txt',
 }, (err, data) => {
   if (err) throw err;
   else completed = data.Body.toString();
@@ -148,7 +148,7 @@ function completeMultipartUpload(doneParams) {
                 s3.putObject({
                   Bucket: property.aws.toBucketName,
                   Body: lastModified.toISOString(),
-                  Key: 'completedRecord.txt',
+                  Key: 'prd_completedRecord.txt',
                 }, (uploadErr, uploadData) => {
                   if (uploadErr) throw new Error(uploadErr);
                   else {
@@ -229,7 +229,7 @@ function getRecord() {
   return new Promise((resolve) => {
     s3.getObject({
       Bucket: property.aws.toBucketName,
-      Key: 'completedRecord.txt',
+      Key: 'prd_completedRecord.txt',
     }, (err, data) => {
       if (err) { throw new Error(err); } else resolve(data.Body.toString());
     });
