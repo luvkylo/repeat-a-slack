@@ -16,6 +16,24 @@ const property = {
     port: process.env.REDSHIFT_PORT,
     host: process.env.REDSHIFT_HOST,
   },
+  tvaug: {
+    be: {
+      device: process.env.TVAUG_API_BE_DEVICE_ID,
+      token: process.env.TVAUG_API_BE_TOKEN,
+    },
+    ch: {
+      device: process.env.TVAUG_API_CH_DEVICE_ID,
+      token: process.env.TVAUG_API_CH_TOKEN,
+    },
+    uk: {
+      device: process.env.TVAUG_API_UK_DEVICE_ID,
+      token: process.env.TVAUG_API_UK_TOKEN,
+    },
+    ie: {
+      device: process.env.TVAUG_API_IE_DEVICE_ID,
+      token: process.env.TVAUG_API_IE_TOKEN,
+    },
+  },
 };
 
 module.exports = property;

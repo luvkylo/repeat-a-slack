@@ -109,30 +109,8 @@ Object.keys(regions).forEach((region) => {
   limit 1000;`;
 
   regions[region].insertKPICmd = 'INSERT INTO tv_aug_kpi_results_monthly (start_time, end_time, query_date, type, crid, adult, title_name, description, episode_number, season_number, series_name, region, is_on_demand, hits, api_request_number, video_results, video_response_code) VALUES ';
-  switch (region) {
-    case 'be':
-      regions[region].device = '5c95fb80-b77a-0406';
-      regions[region].token = '67f90817-2f61-44f8-8ec5-f72f5cb96efc';
-      break;
-    case 'ch':
-      regions[region].device = '5c95fba6-90e7-d178';
-      regions[region].token = '451cd55c-6eb0-4b4e-a9c8-85c27eb5569c';
-      break;
-    // case 'nl':
-    //   regions[region].device = '5c544342-6a5b-9517';
-    //   regions[region].token = '2afc1316-f333-4c28-8dc3-67737cf74a49';
-    //   break;
-    case 'uk':
-      regions[region].device = '5c95fb5c-b7cf-1e27';
-      regions[region].token = '2b6e0fbf-ea1e-461b-8d37-34b03d0c02a2';
-      break;
-    case 'ie':
-      regions[region].device = '5c95fb39-498d-5c12';
-      regions[region].token = '800862e1-2997-4068-9bf0-e6353cbe56a7';
-      break;
-    default:
-      break;
-  }
+  regions[region].device = property.tvaug[region].device;
+  regions[region].token = property.tvaug[region].token;
 });
 
 date = new Date();
