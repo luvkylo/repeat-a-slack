@@ -154,7 +154,7 @@ async function main() {
         let day = ''; let origin_id = ''; let filled_duration_sum = ''; let origin_avail_duration_sum = ''; let
           num_ads_sum = '';
         row.forEach((ele) => {
-          if (ele.field === 'bin(1d)') {
+          if (ele.field === 'bin(1m)') {
             const [d, time] = ele.value.split(' ');
             // this is dilebrate because eslint has the array deconstructing warning
             day = time;
