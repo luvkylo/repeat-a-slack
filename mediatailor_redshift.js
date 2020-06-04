@@ -305,6 +305,7 @@ function listAllKeys() {
                     c = i - 1;
                     break;
                   }
+                  c = i;
                 }
                 const currentGz = [];
 
