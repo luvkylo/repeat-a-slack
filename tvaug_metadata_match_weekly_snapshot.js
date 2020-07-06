@@ -7,8 +7,8 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('fast-csv');
 const { s3multipartUpload } = require('./s3_multipart_uploader');
-// const property = require('./property');
-const property = require('./property_local');
+const property = require('./property');
+// const property = require('./property_local');
 
 const client = property.redshift;
 
@@ -248,8 +248,8 @@ try {
 
             // Run Redshift query
             console.log('Running Redshift query...');
-            const copyCmd = `COPY tv_aug_weekly_match_result from \'s3://${property.aws.toBucketName}/${property.aws.tvaugWeeklySnapshotFolder}/${fileName}\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' CSV dateformat AS \'MM/DD/YYYY\' IGNOREHEADER 1 REGION AS \'eu-central-1\';`;
-            // const copyCmd = `COPY tv_aug_weekly_match_result from \'s3://${property.aws.toBucketName}/${property.aws.tvaugWeeklySnapshotFolder}/${fileName}\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' CSV dateformat AS \'MM/DD/YYYY\' IGNOREHEADER 1 REGION AS \'eu-central-1\';`;
+            // const copyCmd = `COPY tv_aug_weekly_match_result from \'s3://${property.aws.toBucketName}/${property.aws.tvaugWeeklySnapshotFolder}/${fileName}\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' CSV dateformat AS \'MM/DD/YYYY\' IGNOREHEADER 1 REGION AS \'eu-central-1\';`;
+            const copyCmd = `COPY tv_aug_weekly_match_result from \'s3://${property.aws.toBucketName}/${property.aws.tvaugWeeklySnapshotFolder}/${fileName}\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' CSV dateformat AS \'MM/DD/YYYY\' IGNOREHEADER 1 REGION AS \'eu-central-1\';`;
             redshiftClient2.connect((cErr) => {
               if (cErr) throw new Error(cErr);
               else {
