@@ -107,8 +107,9 @@ function request(url, headers, obj, bar1, retry = 0) {
       },
     })
       .then((response) => {
-        if (response.status === 504) {
-          console.log('Encountered 504');
+        if (response.status === 504 || response.status === 500) {
+          const { status } = response;
+          console.log(`Encountered ${status}`);
           let re = retry;
           if (re < 5) {
             setTimeout(async () => {
@@ -118,20 +119,7 @@ function request(url, headers, obj, bar1, retry = 0) {
             }, 2000);
           } else {
             console.log('Retry failed');
-            throw new Error('Encountered 504 but retry failed after 4 times');
-          }
-        } else if (response.status === 500) {
-          console.log('Encountered 500');
-          let re = retry;
-          if (re < 5) {
-            setTimeout(async () => {
-              const newObj = await request(url, headers, obj, bar1, re += 1);
-              console.log('Retry successful');
-              res(newObj);
-            }, 2000);
-          } else {
-            console.log('Retry failed');
-            throw new Error('Encountered 500 but retry failed after 4 times');
+            throw new Error(`Encountered ${status} but retry failed after 4 times`);
           }
         } else if (response.data.message === 'no program exists with for the external identifier provided!') {
           const newObj = obj;
@@ -159,6 +147,27 @@ function request(url, headers, obj, bar1, retry = 0) {
   });
 }
 
+function parallel(promises, bar1) {
+  return new Promise((res) => {
+    Promise.all(promises)
+      .then((resolves) => {
+        resolves.forEach((newObj) => {
+          csvStream.write(newObj);
+          bar1.increment();
+        });
+        res('done');
+      })
+      .catch((promisesErr) => {
+        // throw error
+        bar1.stop();
+        csvStream.end();
+        redshiftClient2.close();
+        console.log(promisesErr);
+        throw new Error(promisesErr);
+      });
+  });
+}
+
 function query() {
   return new Promise((reso) => {
     // redshift query to get the all unique crids
@@ -178,6 +187,8 @@ function query() {
       const str = `${region} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}`;
       const bar1 = new cliProgress.SingleBar({ format: str });
       bar1.start(queryData.rows.length, 0);
+      let workers = 0;
+      let promises = [];
 
       // for each crid, call the prd-lgi-api to get wikidata for that item
       for (let p = 0; p < queryData.rows.length; p += 1) {
@@ -197,13 +208,17 @@ function query() {
           is_on_demand: row.is_on_demand,
         };
 
-        const newObj = await request(url, headers, temp, bar1).catch((e) => {
-          console.log(e);
-          throw new Error(e.err);
-        });
-
-        csvStream.write(newObj);
-        bar1.increment();
+        workers += 1;
+        if (workers <= process.env.WORKERS) {
+          promises.push(request(url, headers, temp, bar1).catch((e) => {
+            console.log(e);
+            throw new Error(e.err);
+          }));
+        } else {
+          workers = 0;
+          await parallel(promises, bar1);
+          promises = [];
+        }
         // } else {
         //   bar1.increment();
         // }
@@ -221,8 +236,10 @@ function query() {
 
 try {
   redshiftClient2.connect(async (connectErr) => {
-    if (connectErr) throw new Error(connectErr);
-    else {
+    if (connectErr) {
+      console.log(connectErr);
+      throw new Error(connectErr);
+    } else {
       console.log('Connected to Redshift!');
       console.log(`\nquerying region: ${region}`);
       try {
