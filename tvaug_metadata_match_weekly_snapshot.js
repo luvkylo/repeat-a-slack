@@ -1,54 +1,69 @@
 require('dotenv').config();
 
+const util = require('util');
 const Redshift = require('node-redshift');
 const axios = require('axios');
+const axiosRetry = require('axios-retry');
 const cliProgress = require('cli-progress');
 const fs = require('fs');
 const path = require('path');
 const csv = require('fast-csv');
 const { s3multipartUpload } = require('./s3_multipart_uploader');
 const property = require('./property');
+const Utils = require('./dateUtils');
 // const property = require('./property_local');
 
-const client = property.redshift;
+const region = process.env.REGION;
+
+const BUNDLE_SIZE = parseInt(process.env.BUNDLE_SIZE, 10);
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 2000;
+const NEXT_BUNDLE_DELAY = 500; // timeout before sending next bundle
+const TEMP_MAX_REQUESTS = null; // to reduce number of requests (for testing)
+
+if (!BUNDLE_SIZE) {
+  throw new Error('Provide BUNDLE_SIZE');
+}
+
+// setup retries
+axiosRetry(axios, {
+  retries: MAX_RETRIES,
+  retryDelay: () => RETRY_DELAY,
+});
+
+const HEADERS = {
+  'X-Frequency-DeviceId': property.tvaug[region].device,
+  'X-Frequency-Auth': property.tvaug[region].token,
+};
+
+const getProgramsUrl = (crid) => (
+  `http://prd-lgi-api.frequency.com/api/2.0/programs/videos?video_image=256w144h,solid,rectangle&external_identifier_source=LGI&external_identifier=${crid}&page_size=43`
+);
+
+const ProgressBar = new cliProgress.SingleBar({
+  format: `${region} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}`,
+});
 
 // Create Redshift connection
-const redshiftClient2 = new Redshift(client, { rawConnection: true });
+const RedshiftClient = new Redshift(property.redshift, { rawConnection: true });
 
-// Get date for file name
-let date = new Date();
+// Get current date
+const date = new Date();
 
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+// Start Date
+const startDateObject = Utils.getDateObject(
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 7)),
+);
 
-const endMonth = date.getUTCMonth() + 1;
-const endYear = date.getUTCFullYear();
-const endD = date.getUTCDate();
+// End Date
+const endDateObject = Utils.getDateObject(
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())),
+);
 
-const endStrMonth = endMonth < 10 ? `0${endMonth}` : endMonth;
-const endStrDay = endD < 10 ? `0${endD}` : endD;
-
-date = new Date();
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - 7));
-
-const startMonth = date.getUTCMonth() + 1;
-const startYear = date.getUTCFullYear();
-const startD = date.getUTCDate();
-
-const startStrMonth = startMonth < 10 ? `0${startMonth}` : startMonth;
-const startStrDay = startD < 10 ? `0${startD}` : startD;
-
-date = new Date();
-date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
-  date.getUTCDate()));
-
-const qMonth = date.getUTCMonth() + 1;
-const queryYear = date.getUTCFullYear();
-const qDay = date.getUTCDate();
-
-const queryMonth = qMonth < 10 ? `0${qMonth}` : qMonth;
-const queryDay = qDay < 10 ? `0${qDay}` : qDay;
-
-const region = process.env.REGION;
+// Query Date
+const queryDateObject = Utils.getDateObject(
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())),
+);
 
 const queryKPICmd = `select
 titles.title_id as crid,
@@ -63,7 +78,7 @@ from (
             ROW_NUMBER() OVER (PARTITION BY title_id
                                ORDER BY name, episode_number, region) AS title_id_ranked
      FROM tv_aug_titles_metadata
-     WHERE ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}' AND region='${region}' AND is_adult=FALSE AND (title_id <> '') IS TRUE
+     WHERE ingest_time>='${startDateObject.monthStr}-${startDateObject.dayStr}-${startDateObject.yearStr}' and ingest_time<'${endDateObject.monthStr}-${endDateObject.dayStr}-${endDateObject.yearStr}' AND region='${region}' AND is_adult=FALSE AND (title_id <> '') IS TRUE
      ORDER BY title_id, name, episode_number, region) AS ranked
   WHERE ranked.title_id_ranked = 1
 ) as titles
@@ -79,215 +94,228 @@ left join (
 ) as contents on contents.title_id=titles.title_id
 ORDER BY crid DESC;`;
 
-const { device } = property.tvaug[region];
-const { token } = property.tvaug[region];
-
-const startDate = `${startStrMonth}/${startStrDay}/${startYear}`;
-const endDate = `${endStrMonth}/${endStrDay}/${endYear}`;
-const queryDate = `${queryMonth}/${queryDay}/${queryYear}`;
-
-console.log(`Start Date: ${startDate}`);
-console.log(`End Date: ${endDate}`);
-
-const csvStream = csv.format({ headers: true });
-
-const fileName = `tvaug_metadata_match_weekly_snapshot_${region}_${queryYear}${queryMonth}${queryDay}.csv`;
+const fileDate = `${queryDateObject.yearStr}${queryDateObject.monthStr}${queryDateObject.dayStr}`;
+const fileName = `tvaug_metadata_match_weekly_snapshot_${region}_${fileDate}.csv`;
 
 const writeStream = fs.createWriteStream(path.join(__dirname, 'JSON', fileName), { flags: 'w' });
 
-csvStream.pipe(writeStream).on('end', () => console.log('done'));
+util.log(`Writing to file location: ${path.join(__dirname, 'JSON', fileName)}`);
 
-function request(url, headers, obj, bar1, retry = 0) {
-  return new Promise((res) => {
+const csvStream = csv.format({ headers: true });
+csvStream.pipe(writeStream).on('end', () => util.log('done'));
+
+function closeEverything() {
+  try {
+    ProgressBar.stop();
+    csvStream.end();
+    RedshiftClient.close();
+  } catch (ignore) {
+    //
+  }
+}
+
+function request(url, headers, obj) {
+  return new Promise((resolve, reject) => {
     axios.get(url, {
       headers,
       muteHttpExceptions: true,
       validateStatus(status) {
-        return [200, 404, 500, 504].indexOf(status) !== -1;
+        return [200, 404].indexOf(status) !== -1;
       },
     })
       .then((response) => {
-        if (response.status === 504 || response.status === 500) {
-          const { status } = response;
-          console.log(`Encountered ${status}`);
-          let re = retry;
-          if (re < 5) {
-            setTimeout(async () => {
-              const newObj = await request(url, headers, obj, bar1, re += 1);
-              console.log('Retry successful');
-              res(newObj);
-            }, 2000);
-          } else {
-            console.log('Retry failed');
-            throw new Error(`Encountered ${status} but retry failed after 4 times`);
-          }
-        } else if (response.data.message === 'no program exists with for the external identifier provided!') {
-          const newObj = obj;
-          newObj.number_matched = -1;
-          res(newObj);
-        } else if (response.data.videos) {
-          const newObj = obj;
-          newObj.number_matched = response.data.videos.length;
-          res(newObj);
+        const { data } = response;
+        if (data.message === 'no program exists with for the external identifier provided!') {
+          resolve({
+            ...obj,
+            number_matched: -1,
+          });
+        } else if (data.videos) {
+          resolve({
+            ...obj,
+            number_matched: data.videos.length,
+          });
         } else {
-          console.log('Error: ');
-          console.log(response);
-          const newObj = obj;
-          newObj.number_matched = -1;
-          res(newObj);
+          util.log('Other Error:', response);
+          resolve({
+            ...obj,
+            number_matched: -1,
+          });
         }
       })
       .catch((err) => {
-        bar1.stop();
-        csvStream.end();
-        redshiftClient2.close();
-        console.log(err);
-        throw new Error(err);
+        const matches = url.match(/external_identifier=([^\&]*)/);
+        let crid = null;
+        if (matches[1]) {
+          [, crid] = matches;
+        }
+
+        reject(new Error(`Request failed: ${err.errno} ${err.syscall}: ${crid}`));
       });
   });
 }
 
-function parallel(promises, bar1) {
-  return new Promise((res) => {
-    Promise.all(promises)
-      .then((resolves) => {
-        resolves.forEach((newObj) => {
-          csvStream.write(newObj);
-          bar1.increment();
-        });
-        res('done');
-      })
-      .catch((promisesErr) => {
-        // throw error
-        bar1.stop();
-        csvStream.end();
-        redshiftClient2.close();
-        console.log(promisesErr);
-        throw new Error(promisesErr);
-      });
-  });
+function parallel(objects) {
+  return Promise.all(
+    objects.map((object) => request(
+      object.url,
+      HEADERS,
+      object.baseObject,
+    )),
+  );
 }
 
 function query() {
-  return new Promise((reso) => {
+  return new Promise((resolve) => {
     // redshift query to get the all unique crids
-    redshiftClient2.query(queryKPICmd, async (queryErr, queryData) => {
+    RedshiftClient.query(queryKPICmd, (queryErr, queryData) => {
       if (queryErr) {
-        redshiftClient2.close();
-        csvStream.end();
-        console.log(queryErr);
+        closeEverything();
+        util.log(queryErr);
         return new Error(queryErr);
       }
 
-      redshiftClient2.close();
+      RedshiftClient.close();
 
-      console.log(Buffer.byteLength(JSON.stringify(queryData.rows), 'utf8'));
-      console.log(`Got region: ${region}`);
+      util.log(queryData.rows.length);
+      util.log(`Got region: ${region}`);
 
-      const str = `${region} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}`;
-      const bar1 = new cliProgress.SingleBar({ format: str });
-      bar1.start(queryData.rows.length, 0);
-      let workers = 0;
-      let promises = [];
+      const promises = [];
 
       // for each crid, call the prd-lgi-api to get wikidata for that item
       for (let p = 0; p < queryData.rows.length; p += 1) {
-        // if (p > 4824) {
+        if (TEMP_MAX_REQUESTS && p > TEMP_MAX_REQUESTS) {
+          break;
+        }
+
         const row = queryData.rows[p];
-        const url = `http://prd-lgi-api.frequency.com/api/2.0/programs/videos?video_image=256w144h,solid,rectangle&external_identifier_source=LGI&external_identifier=${row.crid}&page_size=43`;
-        const headers = { 'X-Frequency-DeviceId': device, 'X-Frequency-Auth': token };
-        const crid = row.crid ? row.crid.replace(/('|")/g, "\\'") : row.crid;
-        let title_name = row.title_name ? row.title_name.replace(/('|")/g, "\\'") : row.title_name;
-        title_name = title_name === 'null' ? '' : `${title_name}`;
-        const temp = {
-          query_date: queryDate,
-          crid,
-          title_name,
+        const title_name = row.title_name ? row.title_name.replace(/('|")/g, "\\'") : row.title_name;
+
+        const baseObject = {
+          query_date: queryDateObject.fullStr,
+          crid: row.crid ? row.crid.replace(/('|")/g, "\\'") : row.crid,
+          title_name: title_name === 'null' ? '' : `${title_name}`,
           type: row.type,
           region: row.region,
           is_on_demand: row.is_on_demand,
         };
 
-        workers += 1;
-        if (workers <= process.env.WORKERS) {
-          promises.push(request(url, headers, temp, bar1).catch((e) => {
-            console.log(e);
-            throw new Error(e.err);
-          }));
-        } else {
-          workers = 0;
-          await parallel(promises, bar1);
-          promises = [];
-        }
-        // } else {
-        //   bar1.increment();
-        // }
+        promises.push({
+          url: getProgramsUrl(row.crid),
+          baseObject,
+        });
       }
 
-      csvStream.end();
-      bar1.stop();
-      //   redshiftClient2.close();
-
-      reso(`All data written to file: tvaug_metadata_match_weekly_snapshot_${region}_${queryYear}${queryMonth}${queryDay}.csv`);
-      return 0;
+      return resolve(promises);
     });
   });
 }
 
+function processRequests(objects, callback) {
+  if (objects.length > 0) {
+    const bundle = objects.splice(0, BUNDLE_SIZE);
+
+    parallel(bundle)
+      .then((data) => {
+        data.forEach((newObj) => {
+          csvStream.write(newObj);
+          ProgressBar.increment();
+        });
+        return data;
+      })
+      .then(() => {
+        setTimeout(() => {
+          processRequests(objects, callback);
+        }, NEXT_BUNDLE_DELAY);
+      })
+      .catch((e) => {
+        closeEverything();
+        util.log('[ERROR]', e.message);
+      });
+
+    return;
+  }
+
+  closeEverything();
+  util.log('No more requests pending... ALL OK');
+  callback();
+}
+
 try {
-  redshiftClient2.connect(async (connectErr) => {
+  util.log(`Start Date: ${startDateObject.fullStr}`);
+  util.log(`End Date: ${endDateObject.fullStr}`);
+  util.log('-----------------------------------');
+
+  RedshiftClient.connect(async (connectErr) => {
     if (connectErr) {
-      console.log(connectErr);
+      util.log(connectErr);
       throw new Error(connectErr);
     } else {
-      console.log('Connected to Redshift!');
-      console.log(`\nquerying region: ${region}`);
+      util.log('Connected to Redshift!');
+      util.log('-----------------------------------');
+      util.log(`Querying region: ${region}`);
+
       try {
-        const complete = await query().catch((e) => {
-          console.log(e);
-          throw new Error(e.err);
-        });
-        console.log(complete);
-
-        s3multipartUpload(fileName, property.aws.toBucketName,
-          property.aws.tvaugWeeklySnapshotFolder, (cb) => {
-            console.log(cb);
-
-            const filePath = path.join(__dirname, 'JSON', fileName);
-
-            // Remove the temporary file
-            try {
-              fs.unlinkSync(filePath);
-              console.log('File removed');
-            } catch (fileErr) {
-              throw new Error(fileErr);
-            }
-
-            // Run Redshift query
-            console.log('Running Redshift query...');
-            // const copyCmd = `COPY tv_aug_weekly_match_result from \'s3://${property.aws.toBucketName}/${property.aws.tvaugWeeklySnapshotFolder}/${fileName}\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' CSV dateformat AS \'MM/DD/YYYY\' IGNOREHEADER 1 REGION AS \'eu-central-1\';`;
-            const copyCmd = `COPY tv_aug_weekly_match_result from \'s3://${property.aws.toBucketName}/${property.aws.tvaugWeeklySnapshotFolder}/${fileName}\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' CSV dateformat AS \'MM/DD/YYYY\' IGNOREHEADER 1 REGION AS \'eu-central-1\';`;
-            redshiftClient2.connect((cErr) => {
-              if (cErr) throw new Error(cErr);
-              else {
-                console.log('Connected to Redshift!');
-                redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
-                  if (queryErr) throw new Error(queryErr);
-                  else {
-                    console.log(migrateData);
-                    console.log('Migrated to Redshift');
-                    redshiftClient2.close();
-                  }
-                });
-              }
-            });
+        const requests = await query()
+          .catch((e) => {
+            util.log(e);
+            throw new Error(e.err);
           });
+
+        util.log('-----------------------------------');
+        util.log(`Requests: ${requests.length}`);
+        util.log(`Bundle size: ${BUNDLE_SIZE}`);
+        util.log(`Timeout between bundles: ${NEXT_BUNDLE_DELAY}ms`);
+        util.log(`Bundles: ${Math.ceil(requests.length / BUNDLE_SIZE)}`);
+
+        ProgressBar.start(requests.length, 0);
+
+        processRequests(requests, () => {
+          util.log('Uploading to s3');
+
+          s3multipartUpload(fileName, property.aws.toBucketName,
+            property.aws.tvaugWeeklySnapshotFolder, (cb) => {
+              util.log(cb);
+
+              const filePath = path.join(__dirname, 'JSON', fileName);
+
+              // Remove the temporary file
+              try {
+                fs.unlinkSync(filePath);
+                util.log('File removed');
+              } catch (fileErr) {
+                throw new Error(fileErr);
+              }
+
+              // Run Redshift query
+              util.log('Running Redshift query...');
+
+              const copyCmd = `COPY tv_aug_weekly_match_result from \'s3://${property.aws.toBucketName}/${property.aws.tvaugWeeklySnapshotFolder}/${fileName}\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' CSV dateformat AS \'MM/DD/YYYY\' IGNOREHEADER 1 REGION AS \'eu-central-1\';`;
+
+              RedshiftClient.connect((cErr) => {
+                if (cErr) {
+                  throw new Error(cErr);
+                } else {
+                  util.log('Connected to Redshift!');
+                  RedshiftClient.query(copyCmd, (queryErr, migrateData) => {
+                    if (queryErr) {
+                      throw new Error(queryErr);
+                    } else {
+                      util.log(migrateData);
+                      util.log('Migrated to Redshift');
+                      RedshiftClient.close();
+                    }
+                  });
+                }
+              });
+            });
+        });
       } catch (e) {
-        console.log(e);
         throw new Error(e);
       }
     }
   });
 } catch (e) {
+  util.log('>S>S>S>S>S', e);
   throw new Error(e);
 }
