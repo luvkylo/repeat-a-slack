@@ -9,4 +9,3 @@ schema.sql
 cw_origin_usage_metric_to_redshift.js
 tvaug_metadata_manual_match_automation.js
 execute.sh
-tvaug_metadata_match_weekly_snapshot_parallel.js
