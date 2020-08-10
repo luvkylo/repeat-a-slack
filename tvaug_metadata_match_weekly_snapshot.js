@@ -316,6 +316,6 @@ try {
     }
   });
 } catch (e) {
-  util.log('>S>S>S>S>S', e);
+  util.log(`Error :${e}`);
   throw new Error(e);
 }
