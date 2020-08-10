@@ -1,7 +1,6 @@
 require('dotenv').config();
 
 const AWS = require('aws-sdk');
-const cliProgress = require('cli-progress');
 const Redshift = require('node-redshift');
 // const property = require('./property_local');
 const property = require('./property');
@@ -18,9 +17,7 @@ const statusParams = {
   status: 'Running',
 };
 
-let total = 0;
-let start = 0;
-let stop = 0;
+const values = {};
 
 // the date below set the date for querying -> from 2 days ago to yesterday
 // this script should runs in 2 days interval
@@ -73,11 +70,22 @@ function statusFunc(queryId) {
             cloudwatchlogs.getQueryResults(resultParams, (resultErr, resultData) => {
               if (resultErr) {
                 throw new Error(resultErr);
-              } else if (resultData.statistics.recordsMatched > 10000) {
-                console.log(resultData.statistics.recordsMatched);
-                resolve('Too much record');
               } else {
-                total += resultData.results.length;
+                resultData.results.forEach((records) => {
+                  let timestamp = new Date(0);
+                  let number = 0;
+                  records.forEach((record) => {
+                    if (record.field === 'bin(1h)') {
+                      timestamp = new Date(record.value);
+                    } else if (record.field === 'count(awsAccountId)') {
+                      number = +record.value;
+                    }
+                  });
+
+                  values[timestamp.toLocaleString()] = number;
+                });
+
+                console.log(resultData.statistics);
                 resolve('done');
               }
             });
@@ -111,73 +119,22 @@ function cloudwatch() {
     const startDate = Date.UTC(secondYear, secondMonth, secondDay, 0, 0, 0, 0);
     const endDate = Date.UTC(firstYear, firstMonth, firstDay, 23, 59, 59, 999);
 
-    let progressDate = startDate;
-
     const queryParams = {
       startTime: startDate,
-      queryString: 'fields @timestamp, @message | sort @timestamp desc',
+      queryString: 'stats count(awsAccountId) by bin(1h)',
       endTime: endDate,
       limit: 10000,
       logGroupName: 'MediaTailor/AdDecisionServerInteractions',
     };
+
     console.log(startDate, endDate);
     console.log(queryParams);
 
-    // Create Cloudatch connection
-    try {
-      // cloudwatchlogs = new AWS.CloudWatchLogs();
-      const str = '[{bar}] {percentage}% | ETA: {eta}s | {value}/{total}';
-      const progress = new cliProgress.SingleBar({ format: str });
-      progress.start((endDate - startDate + 1) / 60000, 0);
-
-      // while start date is less than end date
-      while (progressDate < endDate) {
-      // start time increment is more than end date
-        if ((progressDate + 60000) >= endDate) {
-        // set end time equals to end date
-          start = progressDate;
-          stop = endDate;
-        // else increment end time by (60 seconds - 1 millisecond)
-        } else {
-          start = progressDate;
-          stop = progressDate + 59999;
-        }
-
-        queryParams.startTime = start;
-        queryParams.endTime = stop;
-
-        // start query
-        try {
-          let queryWait = await query(queryParams).catch((e) => {
-            throw new Error(e);
-          });
-
-          if (queryWait !== 'Too much record') {
-            progressDate += 60000;
-          } else {
-            while (queryWait === 'Too much record') {
-              // if too much log stream, cut query interval by half
-              console.log(queryWait);
-              stop = (start + ((start - stop) / 2)) - 1;
-              queryParams.endTime = stop;
-              queryWait = await query(queryParams).catch((e) => {
-                throw new Error(e);
-              });
-              progress.increment(((start - stop) / 2) / 60000);
-              progressDate += ((start - stop) / 2);
-            }
-          }
-          progress.increment();
-        } catch (err) {
-          throw new Error(err);
-        }
-      }
-      // stop progress bar
-      progress.stop();
-      resolve('Done');
-    } catch (e) {
+    const queryWait = await query(queryParams).catch((e) => {
       throw new Error(e);
-    }
+    });
+
+    resolve(queryWait);
   });
 }
 
@@ -190,7 +147,7 @@ async function main() {
     //   RoleArn: 'arn:aws:iam::881583556644:role/freq-assumes-cloudwatch-readonly-master-account',
     //   RoleSessionName: 'alvin@frequency.com',
     //   SerialNumber: 'arn:aws:iam::077497804067:mfa/alvin@frequency.com',
-    //   TokenCode: '257688',
+    //   TokenCode: '332102',
     //   DurationSeconds: 43200,
     // }, async (err, data) => {
     //   if (err) {
@@ -204,7 +161,7 @@ async function main() {
     //     });
     //     console.log('Assumed Role!');
 
-    //     cloudwatchlogs = new AWS.CloudWatchLogs();
+    // cloudwatchlogs = new AWS.CloudWatchLogs();
 
     console.log('starting!');
     const cloudquery = await cloudwatch().catch((e) => {
@@ -212,7 +169,7 @@ async function main() {
     });
     console.log(`cloudwatch query: ${cloudquery}`);
     // query redshift records for number of records
-    const selectCmd = `SELECT count(*) FROM cwl_mediatailor_ad_decision_server_interactions WHERE event_timestamp BETWEEN \'${secondYear}-${secondMonth + 1}-${secondDay} 00:00:00\' AND \'${firstYear}-${firstMonth + 1}-${firstDay} 23:59:59\';`;
+    const selectCmd = `SELECT DATE_TRUNC('hours', request_time) as timestamps, COUNT(*) as counts FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time between \'${secondYear}-${secondMonth + 1}-${secondDay} 00:00:00\' AND \'${firstYear}-${firstMonth + 1}-${firstDay} 23:59:59\' GROUP BY timestamps;`;
     redshiftClient2.connect((connectErr) => {
       if (connectErr) {
         throw new Error(connectErr);
@@ -222,11 +179,22 @@ async function main() {
           if (queryErr) {
             throw new Error(queryErr);
           } else {
-            console.log(migrateData.rows[0].count, total);
+            migrateData.rows.forEach((row) => {
+              const timestamp = new Date(row.timestamps);
+              const tolerant = values[timestamp.toLocaleString()] * 0.005;
+              if (values[timestamp.toLocaleString()] <= parseInt(row.counts, 10) + tolerant
+                  && values[timestamp.toLocaleString()] >= parseInt(row.counts, 10) - tolerant) {
+                delete values[timestamp.toLocaleString()];
+              } else {
+                console.log(`Record does not match for ${timestamp.toLocaleString()}`);
+                console.log(`cloudwatch number: ${values[timestamp.toLocaleString()]}`);
+                console.log(`redshift number: ${parseInt(row.counts, 10)}`);
+                console.log(`tolerant level: ${tolerant}`);
+              }
+            });
 
             // if number of records matches cloudwatch query record count
-            if (+migrateData.rows[0].count <= total + 500
-              && +migrateData.rows[0].count >= total - 500) {
+            if (Object.keys(values).length === 0) {
               // record validated
               console.log('Record match!');
             } else {

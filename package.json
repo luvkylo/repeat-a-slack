@@ -11,6 +11,7 @@
   "dependencies": {
     "aws-sdk": "^2.599.0",
     "axios": "^0.19.2",
+    "axios-retry": "^3.1.8",
     "change-case": "^4.1.1",
     "cli-progress": "^3.6.0",
     "count-lines-in-file": "^1.1.0",

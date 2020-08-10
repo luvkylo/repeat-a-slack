@@ -123,148 +123,154 @@ console.log(`Start Date: ${startDate}`);
 console.log(`End Date: ${endDate}`);
 
 let strArr = [];
-let promises = [];
+let respond = [];
+let recorded = false;
 
 let i = 0;
 let n = 0;
 
+function request(url, headers, bar1, temp, retry = 0) {
+  return new Promise((resolve) => {
+    axios.get(url, {
+      headers,
+      muteHttpExceptions: true,
+      validateStatus(status) {
+        return [200, 404, 500, 502, 504].indexOf(status) !== -1;
+      },
+    })
+      .then((response) => {
+        if (response.status === 504 || response.status === 500 || response.status === 502) {
+          const { status } = response;
+          console.log(`Encountered ${status}`);
+          let re = retry;
+          if (re < 5) {
+            setTimeout(async () => {
+              await request(url, headers, bar1, temp, re += 1);
+              console.log('Retry successful');
+              if (!recorded) {
+                bar1.increment();
+                respond.push(response);
+                strArr.push(temp);
+                recorded = true;
+              }
+              resolve('complete');
+            }, 2000);
+          } else {
+            console.log('Retry failed');
+            bar1.stop();
+            redshiftClient2.close(() => console.log('\nclosed db'));
+            throw new Error(`Encountered ${status} but retry failed after 4 times`);
+          }
+        } else {
+          if (!recorded) {
+            bar1.increment();
+            respond.push(response);
+            strArr.push(temp);
+            recorded = true;
+          }
+          resolve('complete');
+        }
+      })
+      .catch((err) => {
+        bar1.stop();
+        redshiftClient2.close(() => console.log('\nclosed db'));
+        throw new Error(err);
+      });
+  }).catch((err) => {
+    bar1.stop();
+    redshiftClient2.close(() => console.log('\nclosed db'));
+    throw new Error(err);
+  });
+}
+
 function query(region) {
   return new Promise((reso, rej) => {
     // redshift query to get the top 1000 crids
-    redshiftClient2.query(regions[region].queryKPICmd, (queryErr, queryData) => {
+    redshiftClient2.query(regions[region].queryKPICmd, async (queryErr, queryData) => {
       i += 1;
       if (queryErr) rej(new Error({ err: queryErr }));
       else {
         console.log(Buffer.byteLength(JSON.stringify(queryData.rows), 'utf8'));
         console.log(`Got region: ${region}`);
-        let p = 0;
 
         const str = `${region} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total}`;
         const bar1 = new cliProgress.SingleBar({ format: str });
         bar1.start(queryData.rows.length, 0);
 
         // for each crid, call the prd-lgi-api to get wikidata for that item
-        queryData.rows.forEach((row) => {
-          if (p < 1000) {
-            const url = `http://prd-lgi-api.frequency.com/api/2.0/programs/videos?video_image=256w144h,solid,rectangle&external_identifier_source=LGI&external_identifier=${row.original_title_id}&page_size=43`;
-            const headers = { 'X-Frequency-DeviceId': regions[region].device, 'X-Frequency-Auth': regions[region].token };
-            const original_title_id = row.original_title_id ? row.original_title_id.replace(/('|")/g, "\\'") : row.original_title_id;
-            let title_name = row.title_name ? row.title_name.replace(/('|")/g, "\\'") : row.title_name;
-            title_name = title_name === 'null' ? '' : `'${title_name}'`;
-            let description = row.description ? row.description.replace(/('|")/g, "\\'") : row.description;
-            description = description === 'null' ? '' : `'${description}'`;
-            let series_name = row.series_name ? row.series_name.replace(/('|")/g, "\\'") : row.series_name;
-            series_name = series_name === 'null' ? '' : `'${series_name}'`;
-            const temp = `'${startDate}','${endDate}','${queryDate}','${row.type}','${original_title_id}',${row.adult},${title_name},${description},${row.episode_number},${row.season_number},${series_name},'${row.content_region}',${row.vod},${row.hits}`;
+        for (let p = 0; p < queryData.rows.length; p += 1) {
+          const row = queryData.rows[p];
+          const url = `http://prd-lgi-api.frequency.com/api/2.0/programs/videos?video_image=256w144h,solid,rectangle&external_identifier_source=LGI&external_identifier=${row.original_title_id}&page_size=43`;
+          const headers = { 'X-Frequency-DeviceId': regions[region].device, 'X-Frequency-Auth': regions[region].token };
+          const original_title_id = row.original_title_id ? row.original_title_id.replace(/('|")/g, "\\'") : row.original_title_id;
+          let title_name = row.title_name ? row.title_name.replace(/('|")/g, "\\'") : row.title_name;
+          title_name = title_name === 'null' ? '' : `'${title_name}'`;
+          let description = row.description ? row.description.replace(/('|")/g, "\\'") : row.description;
+          description = description === 'null' ? '' : `'${description}'`;
+          let series_name = row.series_name ? row.series_name.replace(/('|")/g, "\\'") : row.series_name;
+          series_name = series_name === 'null' ? '' : `'${series_name}'`;
+          const temp = `'${startDate}','${endDate}','${queryDate}','${row.type}','${original_title_id}',${row.adult},${title_name},${description},${row.episode_number},${row.season_number},${series_name},'${row.content_region}',${row.vod},${row.hits}`;
 
-            promises.push(new Promise((resolve) => {
-              setTimeout(() => {
-                axios.get(url, {
-                  headers,
-                  muteHttpExceptions: true,
-                  validateStatus(status) {
-                    return [200, 404].indexOf(status) !== -1;
-                  },
-                })
-                  .then((response) => {
-                    bar1.increment();
-                    resolve([response, temp]);
-                  })
-                  .catch((err) => {
-                    bar1.stop();
-                    throw new Error(err);
-                  });
-              }, p * 500);
-            }).catch((err) => {
-              throw new Error(err);
-            }));
+          recorded = false;
+          await request(url, headers, bar1, temp);
+        }
+
+
+        // manipulate the data for the kpi table
+        for (let x = 0; x < respond.length; x += 1) {
+          let res = false;
+          if (respond[x].data.message === 'no program exists with for the external identifier provided!') {
+            res = true;
+            strArr[x] = `${strArr[x]},-1,'',${respond[x].status}`;
+          } else if (respond[x].data.videos) {
+            res = true;
+            let resultsVideos = '';
+            for (let videosIndex = 0; videosIndex < Math.min(5, respond[x]
+              .data.videos.length); videosIndex += 1) {
+              if (resultsVideos === '') {
+                resultsVideos = `${respond[x].data.videos[videosIndex].title}~${respond[x].data.videos[videosIndex].duration}~${respond[x].data.videos[videosIndex].image_url}~${respond[x].data.videos[videosIndex].media_url}`;
+              } else {
+                resultsVideos += `~${respond[x].data.videos[videosIndex].title}~${respond[x].data.videos[videosIndex].duration}~${respond[x].data.videos[videosIndex].image_url}~${respond[x].data.videos[videosIndex].media_url}`;
+              }
+            }
+            strArr[x] = `${strArr[x]},${respond[x].data.videos.length},'${resultsVideos.replace(/('|")/g, "\\'")}',${respond[x].status}`;
+          } else {
+            console.log(respond[x]);
           }
-          p += 1;
-        });
 
-        Promise.all(promises)
-          .then((responses) => {
-            const respond = [];
+          // append the result to the query string
+          strArr[x] = `(${strArr[x]})`;
+          if (res) {
+            if (x !== strArr.length - 1) { regions[region].insertKPICmd += `${strArr[x]},`; } else { regions[region].insertKPICmd += `${strArr[x]};`; }
+          }
+        }
 
-            // for each response from the api, make sure there are no error
-            responses.forEach((response) => {
-              if (response[0] === 'error') {
-                console.log(`Error: ${response[1]}`);
-                throw new Error(response[1]);
-              } else {
-                respond.push(response[0]);
-                strArr.push(response[1]);
-              }
-            });
+        if (Buffer.byteLength(regions[region].insertKPICmd, 'utf8') >= 16777216) {
+          rej(new Error({ bar: bar1, err: 'Too Big!' }));
+        }
+        const md = regions[region].insertKPICmd.replace(/(\r\n|\r|\n)/g, '').replace(/\\\\/g, '\\');
+        n += 1;
+        console.log(`\n${n}`);
 
-            // manipulate the data for the kpi table
-            for (let x = 0; x < respond.length; x += 1) {
-              let res = false;
-              if (respond[x].data.message === 'no program exists with for the external identifier provided!') {
-                res = true;
-                strArr[x] = `${strArr[x]},-1,'',${respond[x].status}`;
-              } else if (respond[x].data.videos) {
-                res = true;
-                let resultsVideos = '';
-                for (let videosIndex = 0; videosIndex < Math.min(5, respond[x]
-                  .data.videos.length); videosIndex += 1) {
-                  if (resultsVideos === '') {
-                    resultsVideos = `${respond[x].data.videos[videosIndex].title}~${respond[x].data.videos[videosIndex].duration}~${respond[x].data.videos[videosIndex].image_url}~${respond[x].data.videos[videosIndex].media_url}`;
-                  } else {
-                    resultsVideos += `~${respond[x].data.videos[videosIndex].title}~${respond[x].data.videos[videosIndex].duration}~${respond[x].data.videos[videosIndex].image_url}~${respond[x].data.videos[videosIndex].media_url}`;
-                  }
-                }
-                strArr[x] = `${strArr[x]},${respond[x].data.videos.length},'${resultsVideos.replace(/('|")/g, "\\'")}',${respond[x].status}`;
-              } else {
-                console.log(respond[x]);
-              }
-
-              // append the result to the query string
-              strArr[x] = `(${strArr[x]})`;
-              if (res) {
-                if (x !== strArr.length - 1) { regions[region].insertKPICmd += `${strArr[x]},`; } else { regions[region].insertKPICmd += `${strArr[x]};`; }
-              }
-            }
-
-            if (Buffer.byteLength(regions[region].insertKPICmd, 'utf8') >= 16777216) {
-              rej(new Error({ bar: bar1, err: 'Too Big!' }));
-            }
-            const md = regions[region].insertKPICmd.replace(/(\r\n|\r|\n)/g, '').replace(/\\\\/g, '\\');
-            n += 1;
-            console.log(`\n${n}`);
-
-            // run the redshift query to insert the top 1000 data
-            redshiftClient2.query(md, (e, d) => {
-              if (e) {
-                console.log(e);
-                bar1.stop();
-                throw new Error(e);
-              } else {
-                console.log(`\nAll data written into table for region: ${region}`);
-                if (i === Object.keys(regions).length) {
-                  redshiftClient2.close(() => {
-                    console.log('\nclosed db');
-                    reso({ bar: bar1, data: d });
-                  });
-                } else {
-                  reso({ bar: bar1, data: d });
-                }
-                // reso({ bar: bar1, data: d });
-              }
-            });
-          })
-          .catch((err) => {
-            if (err.responses) {
-              console.log(err.responses.data);
-            } else {
-              console.log(err);
-            }
-
+        // run the redshift query to insert the top 1000 data
+        redshiftClient2.query(md, (e, d) => {
+          if (e) {
+            console.log(e);
+            bar1.stop();
+            throw new Error(e);
+          } else {
+            console.log(`\nAll data written into table for region: ${region}`);
             if (i === Object.keys(regions).length) {
-              redshiftClient2.close(() => console.log('\nclosed db'));
+              redshiftClient2.close(() => {
+                console.log('\nclosed db');
+                reso({ bar: bar1, data: d });
+              });
+            } else {
+              reso({ bar: bar1, data: d });
             }
-            rej(new Error({ bar: bar1, err }));
-          });
+            // reso({ bar: bar1, data: d });
+          }
+        });
       }
     });
   });
@@ -277,7 +283,7 @@ try {
       console.log('Connected to Redshift!');
       for (let x = 0; x < Object.keys(regions).length; x += 1) {
         strArr = [];
-        promises = [];
+        respond = [];
         console.log(`\nquerying region: ${Object.keys(regions)[x]}`);
         try {
           const complete = await query(Object.keys(regions)[x]).catch((e) => {
