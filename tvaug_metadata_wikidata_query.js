@@ -44,8 +44,8 @@ const queryMonth = qMonth < 10 ? `0${qMonth}` : qMonth;
 const queryDay = qDay < 10 ? `0${qDay}` : qDay;
 
 const regions = {
-  ie: {},
-  // be: {}, ch: {}, uk: {}, ie: {},
+  // be: {},
+  be: {}, ch: {}, uk: {}, ie: {},
 };
 
 // an object to store each redshift query
