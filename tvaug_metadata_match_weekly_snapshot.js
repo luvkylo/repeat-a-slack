@@ -19,7 +19,8 @@ const BUNDLE_SIZE = parseInt(process.env.BUNDLE_SIZE, 10);
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 2000;
 const NEXT_BUNDLE_DELAY = 500; // timeout before sending next bundle
-const TEMP_MAX_REQUESTS = null; // to reduce number of requests (for testing)
+const TEMP_MAX_REQUESTS = process.env.TEMP_MAX_REQUESTS
+  ? process.env.TEMP_MAX_REQUESTS : null; // to reduce number of requests (for testing)
 
 if (!BUNDLE_SIZE) {
   throw new Error('Provide BUNDLE_SIZE');
@@ -236,9 +237,11 @@ function processRequests(objects, callback) {
     return;
   }
 
-  closeEverything();
+  ProgressBar.stop();
   util.log('No more requests pending... ALL OK');
-  callback();
+  csvStream.end(() => {
+    callback();
+  });
 }
 
 try {
