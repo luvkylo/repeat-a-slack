@@ -46,7 +46,7 @@ const ProgressBar = new cliProgress.SingleBar({
 });
 
 // Create Redshift connection
-const RedshiftClient = new Redshift(property.redshift, { rawConnection: true });
+let RedshiftClient = new Redshift(property.redshift, { rawConnection: true });
 
 // Get current date
 const date = new Date();
@@ -294,6 +294,8 @@ try {
               util.log('Running Redshift query...');
 
               const copyCmd = `COPY tv_aug_weekly_match_result from \'s3://${property.aws.toBucketName}/${property.aws.tvaugWeeklySnapshotFolder}/${fileName}\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' CSV dateformat AS \'MM/DD/YYYY\' IGNOREHEADER 1 REGION AS \'eu-central-1\';`;
+
+              RedshiftClient = new Redshift(property.redshift, { rawConnection: true });
 
               RedshiftClient.connect((cErr) => {
                 if (cErr) {

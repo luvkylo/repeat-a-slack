@@ -36,6 +36,8 @@ module.exports = {
       ContentType: 'application/csv',
     };
 
+    console.log(multiPartParams);
+
     // Function for completing multipart upload
     function completeMultipartUpload(doneParams) {
       try {
@@ -176,7 +178,7 @@ module.exports = {
         // file with each parts in 100 MB size
         console.log('Creating multipart upload for:', fileKey);
 
-        console.log(`Multipart Params: ${multiPartParams}`);
+        console.log(`Multipart Params: ${JSON.stringify(multiPartParams)}`);
 
         // S3 call to get a multipart upload ID
         s3.createMultipartUpload(multiPartParams, (mpErr, multipart) => {
