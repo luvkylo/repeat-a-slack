@@ -36,6 +36,8 @@ module.exports = {
       ContentType: 'application/csv',
     };
 
+    console.log(multiPartParams);
+
     // Function for completing multipart upload
     function completeMultipartUpload(doneParams) {
       try {

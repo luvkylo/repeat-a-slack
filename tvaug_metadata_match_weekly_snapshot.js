@@ -276,6 +276,8 @@ try {
         processRequests(requests, () => {
           util.log('Uploading to s3');
 
+          console.log(`To Bucket: ${property.aws.toBucketName}`);
+
           s3multipartUpload(fileName, property.aws.toBucketName,
             property.aws.tvaugWeeklySnapshotFolder, (cb) => {
               util.log(cb);
