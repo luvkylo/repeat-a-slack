@@ -236,9 +236,11 @@ function processRequests(objects, callback) {
     return;
   }
 
-  closeEverything();
+  ProgressBar.stop();
   util.log('No more requests pending... ALL OK');
-  callback();
+  csvStream.end(() => {
+    callback();
+  });
 }
 
 try {
