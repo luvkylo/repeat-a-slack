@@ -176,6 +176,8 @@ module.exports = {
         // file with each parts in 100 MB size
         console.log('Creating multipart upload for:', fileKey);
 
+        console.log(`Multipart Params: ${multiPartParams}`);
+
         // S3 call to get a multipart upload ID
         s3.createMultipartUpload(multiPartParams, (mpErr, multipart) => {
           if (mpErr) { throw new Error('Error!', mpErr); } else {
