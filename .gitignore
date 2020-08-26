@@ -9,3 +9,4 @@ schema.sql
 cw_origin_usage_metric_to_redshift.js
 tvaug_metadata_manual_match_automation.js
 execute.sh
+fastly
