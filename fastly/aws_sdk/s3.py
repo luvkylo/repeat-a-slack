@@ -50,7 +50,7 @@ class S3:
             raise KeyError('Missing key value!')
         else:
             obj = self.s3.Object(bucket, key)
-            response = obj.delete()
+            obj.delete()
 
     def deleteObjects(self, keyList='', bucket=''):
         if (bucket == ''):
