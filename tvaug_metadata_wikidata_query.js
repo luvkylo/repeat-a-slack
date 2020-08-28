@@ -308,7 +308,7 @@ try {
 
           const deleteStrMonth = deleteMonth < 10 ? `0${deleteMonth}` : deleteMonth;
 
-          const deleteDate = `${deleteStrMonth}/01/${deleteYear}`;
+          const deleteDate = `${deleteStrMonth}/${endStrDay}/${deleteYear}`;
 
           ti.forEach((table) => {
             const deleteCmd = `DELETE FROM tv_aug_${deleteDate}_metadata
