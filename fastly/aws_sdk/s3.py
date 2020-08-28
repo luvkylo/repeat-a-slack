@@ -1,5 +1,7 @@
 import boto3
 import json
+import re
+import time
 
 
 class S3:
@@ -9,9 +11,11 @@ class S3:
         self.s3Client = boto3.client('s3')
         self.keylist = []
 
-    def getlist(self, bucket='', prefix='', marker=''):
+    def getlist(self, bucket='', prefix='', marker='', gmt=''):
         if (bucket == ''):
             raise KeyError('Missing bucket name!')
+        if (gmt == ''):
+            raise KeyError('Missing UTC timestamp!')
         if (prefix != '' and prefix[-1] != '/'):
             prefix = prefix + '/'
 
@@ -25,10 +29,20 @@ class S3:
 
         for keyObj in response["Contents"]:
             if '.log' in keyObj["Key"]:
-                self.keylist.append(keyObj["Key"])
+                timestamp = re.search(
+                    r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
+                log_time = time.strptime(
+                    timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
+                if time.mktime(log_time) < time.mktime(gmt):
+                    self.keylist.append(keyObj["Key"])
 
         if response["IsTruncated"] == True:
-            self.getlist(bucket, prefix, response["NextMarker"])
+            self.getlist(
+                bucket=bucket,
+                prefix=prefix,
+                marker=response["NextMarker"],
+                gmt=gmt
+            )
 
     def getKeyList(self):
         return self.keylist

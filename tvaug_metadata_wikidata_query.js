@@ -297,25 +297,25 @@ try {
           console.log(complete.data);
 
           // to remove data from tv_aug_(table)_metadata that is 1 month or older
-          // const ti = ['events', 'channels', 'contents', 'credits', 'genres',
-          //   'pictures', 'products', 'series', 'titles'];
+          const ti = ['events', 'channels', 'contents', 'credits', 'genres',
+            'pictures', 'products', 'series', 'titles'];
 
-          // ti.forEach((table) => {
-          // const deleteCmd = `DELETE FROM tv_aug_${table}_metadata
-          //    WHERE ingest_time<${startDate}`;
+          ti.forEach((table) => {
+            const deleteCmd = `DELETE FROM tv_aug_${table}_metadata
+             WHERE ingest_time<${startDate}`;
 
-          //   redshiftClient2.query(deleteCmd, (err, data) => {
-          //     if (err) throw new Error(err);
-          //     else {
-          //       console.log(data);
-          //       if (table === 'titles') {
-          //         redshiftClient2.close(() => {
-          //           console.log('\nclosed db');
-          //         });
-          //       }
-          //     }
-          //   });
-          // });
+            redshiftClient2.query(deleteCmd, (err, data) => {
+              if (err) throw new Error(err);
+              else {
+                console.log(data);
+                if (table === 'titles') {
+                  redshiftClient2.close(() => {
+                    console.log('\nclosed db');
+                  });
+                }
+              }
+            });
+          });
         } catch (e) {
           console.log(e);
           throw new Error(e);

@@ -19,13 +19,17 @@ def main():
     print("************************************************************")
 
     # get a list existing logs
+    gmt = time.gmtime(start - 7200)
     print("Getting the list of files to process...")
     S3.getlist(
         bucket=env_var.s3_fastly_from_bucket_name,
-        prefix=env_var.s3_fastly_logs_from_prefix
+        prefix=env_var.s3_fastly_logs_from_prefix,
+        gmt=gmt
     )
 
     keyList = S3.getKeyList()
+    print("Number of Files:", len(keyList))
+    print("Last file process:", keyList[-1])
     print("Got All File Keys...")
     print("Downloading all Files now")
     jsonObj = S3.getDataframeObject(
