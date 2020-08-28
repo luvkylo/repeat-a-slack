@@ -29,6 +29,9 @@ def main():
 
     keyList = S3.getKeyList()
     print("Number of Files:", len(keyList))
+    if len(keyList) == 0:
+        print("No unprocessed log files detected")
+        return
     print("Last file process:", keyList[-1])
     print("Got All File Keys...")
     print("Downloading all Files now")
@@ -79,8 +82,6 @@ def main():
     end = time.time()
     print('Script ends at', end)
     print('Total Elapsed time:', end - start)
-
-    # print(env_var.redshift_user)
 
 
 if __name__ == '__main__':

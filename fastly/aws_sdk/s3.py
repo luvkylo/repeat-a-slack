@@ -1,4 +1,5 @@
 import boto3
+import botocore
 import json
 import re
 import time
@@ -19,13 +20,16 @@ class S3:
         if (prefix != '' and prefix[-1] != '/'):
             prefix = prefix + '/'
 
-        response = self.s3Client.list_objects(
-            Bucket=bucket,
-            Prefix=prefix,
-            Marker=marker,
-            Delimiter='?',
-            MaxKeys=1000
-        )
+        try:
+            response = self.s3Client.list_objects(
+                Bucket=bucket,
+                Prefix=prefix,
+                Marker=marker,
+                Delimiter='?',
+                MaxKeys=1000
+            )
+        except botocore.exceptions.ClientError as error:
+            raise error
 
         for keyObj in response["Contents"]:
             if '.log' in keyObj["Key"]:
@@ -53,9 +57,18 @@ class S3:
         elif (key == ''):
             raise KeyError('Missing key value!')
         else:
-            obj = self.s3.Object(bucket, key)
-            response = obj.get()
-            return response["Body"]
+            try:
+                obj = self.s3.Object(bucket, key)
+                response = obj.get()
+                return response["Body"]
+            except self.s3.meta.client.exceptions.NoSuchKey as err:
+                print("Failed to download object")
+                print("Key:", key, "\ndoes not exist in the bucket:", bucket)
+                ValueError(err)
+            except self.s3.meta.client.exceptions.NoSuchBucket as err:
+                print("Failed to download object")
+                print("Bucket does not exist:", bucket)
+                ValueError(err)
 
     def deleteObject(self, bucket='', key=''):
         if (bucket == ''):
@@ -63,8 +76,17 @@ class S3:
         elif (key == ''):
             raise KeyError('Missing key value!')
         else:
-            obj = self.s3.Object(bucket, key)
-            obj.delete()
+            try:
+                obj = self.s3.Object(bucket, key)
+                obj.delete()
+            except self.s3.meta.client.exceptions.NoSuchKey as err:
+                print("Failed to delete object")
+                print("Key:", key, "\ndoes not exist in the bucket:", bucket)
+                raise ValueError(err)
+            except self.s3.meta.client.exceptions.NoSuchBucket as err:
+                print("Failed to delete object")
+                print("Bucket does not exist:", bucket)
+                raise ValueError(err)
 
     def deleteObjects(self, keyList='', bucket=''):
         if (bucket == ''):
