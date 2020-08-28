@@ -296,12 +296,22 @@ try {
           complete.bar.stop();
           console.log(complete.data);
 
-          // to remove data from tv_aug_(table)_metadata that is 1 month or older
+          // to remove data from tv_aug_(table)_metadata that is 2 month or older
           const ti = ['events', 'channels', 'contents', 'credits', 'genres',
             'pictures', 'products', 'series', 'titles'];
 
+          date = new Date();
+          date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1));
+
+          const deleteMonth = date.getUTCMonth() + 1;
+          const deleteYear = date.getUTCFullYear();
+
+          const deleteStrMonth = deleteMonth < 10 ? `0${deleteMonth}` : deleteMonth;
+
+          const deleteDate = `${deleteStrMonth}/01/${deleteYear}`;
+
           ti.forEach((table) => {
-            const deleteCmd = `DELETE FROM tv_aug_${table}_metadata
+            const deleteCmd = `DELETE FROM tv_aug_${deleteDate}_metadata
              WHERE ingest_time<${startDate}`;
 
             redshiftClient2.query(deleteCmd, (err, data) => {
