@@ -1,3 +1,5 @@
+/* eslint-disable max-len */
+/* eslint-disable no-await-in-loop */
 require('dotenv').config();
 
 const AWS = require('aws-sdk');
@@ -5,8 +7,9 @@ const zlib = require('zlib');
 const Redshift = require('node-redshift');
 const fs = require('fs');
 const path = require('path');
-const splitFile = require('split-file');
 const cliProgress = require('cli-progress');
+const geoip = require('geoip-lite');
+const { s3multipartUpload } = require('./s3_multipart_uploader');
 // const property = require('./property_local');
 const property = require('./property');
 
@@ -59,21 +62,9 @@ minute = minute < 10 ? `0${minute}` : minute;
 console.log(`Processing file on this day: ${date.toISOString()}`);
 
 // Initialize variables for mutiparts upload
-const fileName = 'temp.json';
+const fileName = `mediaTailorData-${month}${day}${year}-${hour}${minute}.json`;
 const filePath = path.join(__dirname, 'JSON', fileName);
-const fileKey = fileName;
-const startTime = new Date();
-let partNum = 0;
-const partSize = 1024 * 1024 * 50;
-// 50 represent 50 MB, the AWS recommends file size to be used in multipart upload
-const maxUploadTries = 3;
-const multipartMap = {
-  Parts: [],
-};
 let arr = [];
-let nameArr = [];
-const partObj = {};
-let finalPartDone = false;
 let lastModified = '';
 let lookBack = false;
 
@@ -91,138 +82,7 @@ const getParams = {
   Bucket: property.aws.fromBucketName,
 };
 
-const multiPartParams = {
-  Bucket: property.aws.toBucketName,
-  Key: `${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json`,
-  ContentType: 'application/json',
-};
-
 console.log(`Looking into the bucket prefix: ${bucketParams.Prefix}`);
-
-// Function for completing multipart upload
-function completeMultipartUpload(doneParams) {
-  try {
-    // S3 call
-    s3.completeMultipartUpload(doneParams, (err, data) => {
-      if (err) {
-        console.log('An error occurred while completing the multipart upload');
-        throw new Error(err);
-      } else {
-      // When upload are complete
-        const delta = (new Date() - startTime) / 1000;
-        console.log('Completed upload in', delta, 'seconds');
-        console.log('Final upload data:', data);
-        console.log('Removing temporary file...');
-
-        // Remove the temporary file
-        try {
-          fs.unlinkSync(filePath);
-          console.log('File removed');
-        } catch (fileErr) {
-          throw new Error(fileErr);
-        }
-
-        nameArr.forEach((namePath) => {
-          try {
-            fs.unlinkSync(namePath);
-            console.log(`File removed: ${namePath}`);
-          } catch (fileErr) {
-            throw new Error(fileErr);
-          }
-        });
-
-        // Run Redshift query
-        console.log('Running Redshift query...');
-        // const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
-        const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
-        redshiftClient2.connect((connectErr) => {
-          if (connectErr) throw new Error(connectErr);
-          else {
-            console.log('Connected to Redshift!');
-            redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
-              if (queryErr) throw new Error(queryErr);
-              else {
-                console.log(migrateData);
-                console.log('Migrated to Redshift');
-
-                // log the latest file date in S3 to prevent duplicate run
-                s3.putObject({
-                  Bucket: property.aws.toBucketName,
-                  Body: lastModified.toISOString(),
-                  Key: 'prd_completedRecord.txt',
-                }, (uploadErr, uploadData) => {
-                  if (uploadErr) throw new Error(uploadErr);
-                  else {
-                    console.log('Record Saved!');
-                    console.log(uploadData);
-                  }
-                });
-                redshiftClient2.close();
-              }
-            });
-          }
-        });
-      }
-    });
-  } catch (error) {
-    throw new Error(error);
-  }
-}
-
-// Function to upload parts
-function uploadPart(multipart, partParams, tryNum = 1) {
-  try {
-    // S3 call
-    s3.uploadPart(partParams, (multiErr, mData) => {
-    // If encounter error, retry for 3 times
-      if (multiErr) {
-        console.log('multiErr, upload part error:', multiErr);
-        if (tryNum < maxUploadTries) {
-          console.log('Retrying upload of part: #', partParams.PartNumber);
-          try {
-            uploadPart(multipart, partParams, tryNum + 1);
-          } catch (error) {
-            throw new Error(error);
-          }
-        } else {
-          throw new Error(`Failed uploading part: #${partParams.PartNumber}`);
-        }
-      }
-
-      // Append to the multipartMap for final assembly in completeMultipartUpload function
-      multipartMap.Parts[partParams.PartNumber - 1] = {
-        ETag: mData.ETag,
-        PartNumber: Number(partParams.PartNumber),
-      };
-      console.log('Completed part', partParams.PartNumber);
-      console.log('mData', mData);
-
-      delete partObj[partParams.PartNumber];
-      if (Object.entries(partObj).length !== 0 && !finalPartDone) return;
-      // complete only when all parts uploaded
-
-      if (!finalPartDone) {
-        finalPartDone = true;
-        const doneParams = {
-          Bucket: property.aws.toBucketName,
-          Key: `${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json`,
-          MultipartUpload: multipartMap,
-          UploadId: multipart.UploadId,
-        };
-
-        // When all parts are uploaded
-        console.log('Completing upload...');
-        try {
-          completeMultipartUpload(doneParams);
-        } catch (error) {
-          throw new Error(error);
-        }
-      }
-    });
-  } catch (error) {
-    throw new Error(error);
-  }
-}
 
 console.log('Getting all objects in S3 bucket...');
 
@@ -252,7 +112,7 @@ function parse(key) {
         zlib.unzip(buffer, (zipErr, zipData) => {
           if (zipErr) throw new Error(zipErr);
           else {
-          // Split each data into array when new line
+            // Split each data into array when new line
             let logData = zipData.toString().split('{"messageType"');
 
             // Create variables for json
@@ -299,42 +159,8 @@ function parse(key) {
                 stampMiliSec = stampMiliSec < 10 ? `0${stampMiliSec}` : stampMiliSec;
                 const time = `${stampYear}-${stampMonth}-${stampDay}T${stampHour}:${stampMinute}:${stampSec}.${stampMiliSec}Z`;
 
-                let message1; let message2; let message3; let message4;
-                message1 = '';
-                message2 = '';
-                message3 = '';
-                message4 = '';
-
-                let { message } = log;
+                const { message } = log;
                 const jsonObj = JSON.parse(message);
-
-                if (Buffer.byteLength(message) > 65535) {
-                  const tempBuffer = Buffer.from(message);
-                  message1 = tempBuffer.slice(0, 65535).toString();
-                  message2 = tempBuffer.slice(65536).toString();
-                } else {
-                  message1 = message;
-                }
-
-                if (Buffer.byteLength(message2) > 65535) {
-                  const tempBuffer = Buffer.from(message2);
-                  message2 = tempBuffer.slice(0, 65535).toString();
-                  message3 = tempBuffer.slice(65536).toString();
-                }
-
-                if (Buffer.byteLength(message3) > 65535) {
-                  const tempBuffer = Buffer.from(message3);
-                  message3 = tempBuffer.slice(0, 65535).toString();
-                  message4 = tempBuffer.slice(65536).toString();
-                }
-
-                if (Buffer.byteLength(message4) > 65535) {
-                  const tempBuffer = Buffer.from(message4);
-                  message4 = tempBuffer.slice(0, 65535).toString();
-                  message = tempBuffer.slice(65536).toString();
-                  console.log(message4);
-                  console.log(message);
-                }
 
                 objArr.forEach((ele) => {
                   if (!jsonObj[ele]) {
@@ -346,6 +172,9 @@ function parse(key) {
                 let beacon_info_headers_0_value = '';
                 let beacon_info_headers_1_name = '';
                 let beacon_info_headers_1_value = '';
+                let city = '';
+                let country_iso = '';
+                let region = '';
                 if (jsonObj.beaconInfo && jsonObj.beaconInfo.headers) {
                   jsonObj.beaconInfo.headers.forEach((header) => {
                     if (header.name) {
@@ -355,6 +184,13 @@ function parse(key) {
                       } else if (header.name === 'X-Forwarded-For') {
                         beacon_info_headers_1_name = `"${header.name.trim().replace(/\"/g, "'")}"`;
                         beacon_info_headers_1_value = `"${header.value.trim().replace(/\"/g, "'")}"`;
+                        const ip = beacon_info_headers_1_value.replace(/\"/g, '');
+                        const geoInfo = geoip.lookup(ip);
+                        if (geoInfo) {
+                          city = geoInfo.city;
+                          country_iso = geoInfo.country;
+                          region = geoInfo.region;
+                        }
                       }
                     }
                   });
@@ -379,10 +215,9 @@ function parse(key) {
                   beacon_info_headers_1_name,
                   beacon_info_headers_1_value,
                   beacon_info_tracking_event: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.trackingEvent !== 'undefined') ? jsonObj.beaconInfo.trackingEvent : ''),
-                  message1,
-                  message2,
-                  message3,
-                  message4,
+                  city,
+                  country_iso,
+                  region,
                 };
 
                 // Transform object into JSON string
@@ -484,6 +319,8 @@ function listAllKeys() {
                   currentGz.push(arr[co].Key);
                 }
 
+                console.log(currentGz);
+
                 const itemLastModified = new Date(arr[c].LastModified);
                 console.log(`Item last modified: ${itemLastModified.toISOString()}`);
                 console.log(`Processing files on this day: ${date.toISOString()}`);
@@ -503,175 +340,166 @@ function listAllKeys() {
                     throw new Error(err);
                   })
                   .end(() => {
-                    // split the JSON file incase it reaches
-                    // the Buffer limit at 2147483647 bytes
-                    splitFile.splitFileBySize(`${__dirname}/JSON/temp.json`, 2147483647)
-                      .then((names) => {
-                        // Once all data is settled, Read the JSON file and
-                        // prepare its data to be split into parts for mulipart uploads
-                        console.log('All data is written to temporary JSON file(s)!');
+                    console.log('Uploading to s3');
 
-                        const buffers = {};
-                        let last = '';
-                        const first = names[0];
-                        let i = 1;
+                    s3multipartUpload(fileName,
+                      property.aws.toBucketName, property.aws.jsonPutKeyFolder, (cb) => {
+                        console.log(cb);
 
-                        // Once split to different JSON file
-                        names.forEach((name) => {
-                          // Read each buffer and append to an object with structure:
-                          // {
-                          //     "Part1 __dirname": {
-                          //         buffer: < Buffer>,
-                          //         next: "Part2 __dirname",
-                          //         num: "Part num, e.g. 1"
-                          //     },
-                          //     "Part2 __dirname": {
-                          //         buffer: < Buffer>,
-                          //         next: (if there is another part) "Part3 __dirname",
-                          //         num: "Part num, e.g. 1"
-                          //     },
-                          // }
-                          buffers[name] = {
-                            num: i,
-                          };
-                          i += 1;
-                          if (last !== '') {
-                            const buffObj = buffers[last];
-                            buffObj.next = name;
-                            buffers[last] = buffObj;
-                          }
-                          last = name;
-                        });
-                        nameArr = names;
+                        // Remove the temporary file
+                        try {
+                          fs.unlinkSync(filePath);
+                          console.log('File removed');
+                        } catch (fileErr) {
+                          throw new Error(fileErr);
+                        }
 
-                        // Get the total length of buffer
-                        let length = 0;
+                        // Run Redshift query
+                        console.log('Running Redshift query...');
+                        // const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
+                        const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}/mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
+                        redshiftClient2.connect((connectErr) => {
+                          if (connectErr) throw new Error(connectErr);
+                          else {
+                            console.log('Connected to Redshift!');
+                            redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
+                              if (queryErr) throw new Error(queryErr);
+                              else {
+                                console.log(migrateData);
+                                console.log('Migrated to Redshift');
 
-                        Object.keys(buffers).forEach((key) => {
-                          const stat = fs.statSync(key);
-                          const { size } = stat;
-                          length += size;
-                        });
+                                // log the latest file date in S3 to prevent duplicate run
+                                s3.putObject({
+                                  Bucket: property.aws.toBucketName,
+                                  Body: lastModified.toISOString(),
+                                  Key: 'prd_completedRecord.txt',
+                                }, (uploadErr, uploadData) => {
+                                  if (uploadErr) throw new Error(uploadErr);
+                                  else {
+                                    console.log('Record Saved!');
+                                    console.log(uploadData);
 
-                        console.log(`Total buffer bytes: ${length}`);
+                                    date = new Date();
 
-                        // Calculate the number of parts needed to upload
-                        // the whole file with each parts in 100 MB size
-                        console.log('Creating multipart upload for:', fileKey);
+                                    date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
+                                      date.getUTCDate(), date.getUTCHours() - 1));
 
-                        // S3 call to get a multipart upload ID
-                        s3.createMultipartUpload(multiPartParams, (mpErr, multipart) => {
-                          if (mpErr) { throw new Error('Error!', mpErr); } else {
-                            console.log('Got upload ID', multipart.UploadId);
+                                    let aggregatedCompleted = '';
 
-                            let bufferObj = buffers[first];
-                            bufferObj.buffer = fs.readFileSync(first);
+                                    s3.getObject({
+                                      Bucket: property.aws.toBucketName,
+                                      Key: 'prd_aggregatedCompletedRecord.txt',
+                                    }, (err, data) => {
+                                      if (err) throw err;
+                                      else aggregatedCompleted = data.Body.toString();
 
-                            // Grab each partSize chunk and upload it as a part
-                            for (let rangeStart = 0; rangeStart < length;
-                              rangeStart += partSize) {
-                              partNum += 1;
-                              const end = Math.min(rangeStart + partSize, length);
-                              let start = rangeStart;
-                              const { buffer } = bufferObj;
-                              let body = '';
 
-                              // Collect bytes from different buffer and
-                              // append to the body param
-                              // If first buffer
-                              if (bufferObj.num === 1) {
-                                // If part length exceed buffer current
-                                // buffer length, get the next buffer
-                                if ((bufferObj.num * 2147483647) > rangeStart
-                                && (bufferObj.num * 2147483647) < end) {
-                                  buffers[bufferObj.next].buffer = fs
-                                    .readFileSync(bufferObj.next);
+                                      let lastCompleteDate = new Date(Date.parse(aggregatedCompleted));
 
-                                  const part1 = buffer.slice(start, 2147483647);
-                                  const part2 = buffers[bufferObj.next]
-                                    .buffer.slice(0, end - 2147483647);
+                                      if (minute < 30 || date < lastCompleteDate) {
+                                        redshiftClient2.close();
+                                      } else {
+                                        if (date > lastCompleteDate) {
+                                          date = new Date(Date.UTC(lastCompleteDate.getUTCFullYear(), lastCompleteDate.getUTCMonth(),
+                                            lastCompleteDate.getUTCDate(), lastCompleteDate.getUTCHours()));
+                                        }
 
-                                  // Concat the two part and change the body param
-                                  body = Buffer.concat([part1, part2]);
+                                        let month1 = date.getUTCMonth() + 1;
+                                        const year1 = date.getUTCFullYear();
+                                        let hour1 = date.getUTCHours();
+                                        let day1 = date.getUTCDate();
+                                        month1 = month1 < 10 ? `0${month1}` : month1;
+                                        day1 = day1 < 10 ? `0${day1}` : day1;
+                                        hour1 = hour1 < 10 ? `0${hour1}` : hour1;
 
-                                  console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                                  console.log(`Part ${bufferObj.num} Byte end: ${2147483647}`);
-                                  console.log(`Part ${buffers[bufferObj.next].num} Byte start: ${0}`);
-                                  console.log(`Part ${buffers[bufferObj.next].num} Byte end: ${end - 2147483647}`);
-                                  console.log(`Total byte: ${end}`);
+                                        lastCompleteDate = new Date(Date.UTC(year, month - 1, day, hour));
 
-                                  // Move to next buffer object
-                                  bufferObj = buffers[bufferObj.next];
+                                        const timeRange = `${year}-${month}-${day} ${hour}:00:00`;
+                                        const timeRange1 = `${year1}-${month1}-${day1} ${hour1}:00:00`;
+                                        const timeRangeDay = `${year1}-${month1}-${day1} 00:00:00`;
+                                        const timeRangeMonth = `${year1}-${month1}-01 00:00:00`;
 
-                                  // Else proceed as normal in the same buffer
-                                } else {
-                                  body = buffer.slice(start, end);
-                                  console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                                  console.log(`Part ${bufferObj.num} Byte end: ${end}`);
-                                  console.log(`Total byte: ${end}`);
-                                }
+                                        let rawTimeRangeDate = new Date();
+                                        rawTimeRangeDate = new Date(Date.UTC(rawTimeRangeDate.getUTCFullYear(), rawTimeRangeDate.getUTCMonth() - 2));
+                                        let rawTimeRangeMonth = rawTimeRangeDate.getUTCMonth() + 1;
+                                        const rawTimeRangeYear = rawTimeRangeDate.getUTCFullYear();
+                                        rawTimeRangeMonth = rawTimeRangeMonth < 10 ? `0${rawTimeRangeMonth}` : rawTimeRangeMonth;
 
-                                // Else change the start and end byte
-                                // to accomadate moving to a new buffer
-                              } else {
-                                start = rangeStart - (2147483647 * (bufferObj.num - 1));
-                                const rangeEnd = end - (2147483647 * (bufferObj.num - 1));
+                                        const timeRangeMonth1 = `${rawTimeRangeYear}-${rawTimeRangeMonth}-01 00:00:00`;
 
-                                // If part length exceed buffer current buffer length,
-                                // get the next buffer
-                                if ((bufferObj.num * 2147483647) > rangeStart
-                                && (bufferObj.num * 2147483647) < end) {
-                                  buffers[bufferObj.next].buffer = fs
-                                    .readFileSync(bufferObj.next);
+                                        const aggregatedCmd = {
+                                          insert: {
+                                            cwl_mediatailor_impression_beacon_cmd: `INSERT INTO cwl_mediatailor_impression_beacon ( SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, beacon_info_tracking_event, CASE WHEN CONCAT(CONCAT(REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 2)), \'.\') ,REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 1)))=\'.\' THEN NULL ELSE CONCAT(CONCAT(REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 2)), \'.\') ,REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 1))) END as uri_source, COUNT(beacon_info_tracking_event) as beacon_tracking_event_count, origin_id, event_type, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE beacon_info_tracking_event=\'impression\' and request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, uri_source, event_type, beacon_info_tracking_event, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_minute_unique_users_sessions_cmd: `INSERT INTO cwl_mediatailor_minute_unique_users_sessions (SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, COUNT( DISTINCT session_id) as unique_session, COUNT( DISTINCT beacon_info_headers_1_value) as unique_user, origin_id, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_hourly_unique_users_sessions_cmd: `INSERT INTO cwl_mediatailor_hourly_unique_users_sessions (SELECT DATE_TRUNC(\'hours\', request_time) as timestamps, COUNT( DISTINCT session_id) as unique_session, COUNT( DISTINCT beacon_info_headers_1_value) as unique_user, origin_id, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_daily_unique_users_sessions_cmd: `INSERT INTO cwl_mediatailor_daily_unique_users_sessions ( SELECT DATE_TRUNC(\'days\', request_time) as timestamps, COUNT( DISTINCT session_id) as unique_session, COUNT( DISTINCT beacon_info_headers_1_value) as unique_user, origin_id, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRangeDay}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_monthly_unique_users_sessions_cmd: `INSERT INTO cwl_mediatailor_monthly_unique_users_sessions (SELECT DATE_TRUNC(\'months\', request_time) as timestamps, COUNT( DISTINCT session_id) as unique_session, COUNT( DISTINCT beacon_info_headers_1_value) as unique_user, origin_id, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRangeMonth}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_ad_event_type_cmd: `INSERT INTO cwl_mediatailor_ad_event_type (SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, origin_id, event_type, COUNT(event_type) as request_count, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, event_type, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_error_cmd: `INSERT INTO cwl_mediatailor_error (SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, count(request_id) as request_count, origin_id, event_type, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, event_type, city, country_iso, region ORDER BY timestamps asc);`,
+                                          },
+                                          delete: {
+                                            cwl_mediatailor_daily_unique_users_sessions_delete_cmd: `DELETE FROM cwl_mediatailor_daily_unique_users_sessions WHERE timestamps>=\'${timeRangeDay}\' and timestamps<\'${timeRange}\';`,
+                                            cwl_mediatailor_monthly_unique_users_sessions_delete_cmd: `DELETE FROM cwl_mediatailor_monthly_unique_users_sessions WHERE timestamps>=\'${timeRangeMonth}\' and timestamps<\'${timeRange}\';`,
+                                            cwl_mediatailor_ad_decision_server_interactions_delete_cmd: `DELETE FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time<\'${timeRangeMonth1}\';`,
+                                          },
+                                        };
 
-                                  const part1 = buffer.slice(start, 2147483647);
-                                  const part2 = buffers[bufferObj.next].buffer
-                                    .slice(0, rangeEnd - 2147483647);
+                                        const insertPromises = [];
+                                        const deletePromises = [];
 
-                                  // Concat the two part and change the body param
-                                  body = Buffer.concat([part1, part2]);
+                                        Object.keys(aggregatedCmd.delete).forEach((cmd) => {
+                                          deletePromises.push(new Promise((res) => {
+                                            redshiftClient2.query(aggregatedCmd.delete[cmd], (qErr, deleteData) => {
+                                              if (qErr) throw new Error(qErr);
+                                              else {
+                                                console.log(deleteData);
+                                                res(`Deleted: ${cmd}`);
+                                              }
+                                            });
+                                          }));
+                                        });
 
-                                  console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                                  console.log(`Part ${bufferObj.num} Byte end: ${2147483647}`);
-                                  console.log(`Part ${buffers[bufferObj.next].num} Byte start: ${0}`);
-                                  console.log(`Part ${buffers[bufferObj.next].num} Byte end: ${rangeEnd - 2147483647}`);
+                                        Object.keys(aggregatedCmd.insert).forEach((cmd) => {
+                                          insertPromises.push(new Promise((res) => {
+                                            redshiftClient2.query(aggregatedCmd.insert[cmd], (qErr, insertData) => {
+                                              if (qErr) throw new Error(qErr);
+                                              else {
+                                                console.log(insertData);
+                                                res(`Inserted: ${cmd}`);
+                                              }
+                                            });
+                                          }));
+                                        });
 
-                                  console.log(`Total byte: ${end}`);
+                                        Promise.all(deletePromises)
+                                          .then(() => {
+                                            Promise.all(insertPromises)
+                                              .then(() => {
+                                                console.log('All insert completed');
 
-                                  // Move to next buffer object
-                                  bufferObj = buffers[bufferObj.next];
+                                                s3.putObject({
+                                                  Bucket: property.aws.toBucketName,
+                                                  Body: lastCompleteDate.toISOString(),
+                                                  Key: 'prd_aggregatedCompletedRecord.txt',
+                                                }, (Err, Data) => {
+                                                  if (Err) throw new Error(Err);
+                                                  else {
+                                                    console.log('Aggregated Record Saved!');
+                                                    console.log(Data);
+                                                  }
+                                                });
 
-                                  // Else proceed as normal in the same buffer
-                                } else {
-                                  body = buffer.slice(start, rangeEnd);
-                                  console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                                  console.log(`Part ${bufferObj.num} Byte end: ${rangeEnd}`);
-
-                                  console.log(`Total byte: ${end}`);
-                                }
+                                                redshiftClient2.close();
+                                              });
+                                          });
+                                      }
+                                    });
+                                  }
+                                });
                               }
-
-                              const partParams = {
-                                Body: body,
-                                Bucket: property.aws.toBucketName,
-                                Key: `${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json`,
-                                PartNumber: String(partNum),
-                                UploadId: multipart.UploadId,
-                              };
-                              // Send a single part
-                              console.log('Uploading part: #', partParams.PartNumber, ', Range start:', rangeStart);
-                              partObj[partParams.PartNumber] = '';
-                              try {
-                                uploadPart(multipart, partParams);
-                              } catch (error) {
-                                throw new Error(error);
-                              }
-                            }
+                            });
                           }
                         });
-                      })
-                      .catch((err) => {
-                        throw new Error(err);
                       });
                   });
               }
