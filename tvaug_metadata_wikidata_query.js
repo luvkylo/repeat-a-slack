@@ -301,7 +301,7 @@ try {
             'pictures', 'products', 'series', 'titles'];
 
           date = new Date();
-          date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1));
+          date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2));
 
           const deleteMonth = date.getUTCMonth() + 1;
           const deleteYear = date.getUTCFullYear();
