@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 
-class Pandas:
+class ETLPandasService:
     def __init__(self):
         self.df = ''
 

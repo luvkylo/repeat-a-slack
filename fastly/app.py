@@ -43,7 +43,7 @@ def main():
     print("Got All Files")
     print("************************************************************")
 
-    pd = pandas.Pandas()
+    pd = pandas.ETLPandasService()
     pd.etl(jsonObj=jsonObj)
     df = pd.getdf()
 
