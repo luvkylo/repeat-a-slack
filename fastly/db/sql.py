@@ -13,7 +13,7 @@ class Redshift:
                 port=port
             )
             self.cursor = self.connection.cursor()
-        except (e.ConnectionException, e.SqlclientUnableToEstablishSqlconnection, e.ConnectionDoesNotExist, e.	ConnectionFailure) as err:
+        except (e.ConnectionException, e.SqlclientUnableToEstablishSqlconnection, e.ConnectionDoesNotExist, e.ConnectionFailure) as err:
             print(
                 "Redshift Failed to connect, please check if your vpn is on and is set to correct region")
             raise ConnectionError(err)
