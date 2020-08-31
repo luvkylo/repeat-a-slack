@@ -53,7 +53,7 @@ def main():
     np_data = df.to_numpy()
     print(len(np_data))
 
-    print("Connectiong to Redshift...")
+    print("Connecting to Redshift...")
     # connect to Redshift
     redshift = sql.Redshift(
         user=env_var.redshift_user,
