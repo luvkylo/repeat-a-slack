@@ -6,7 +6,7 @@ from pathlib import Path
 
 class Env:
 
-    env_path = Path(os.path.dirname(os.getcwd())) / '.env'
+    env_path = os.path.join(os.path.dirname(os.getcwd()), '.env')
     load_dotenv(dotenv_path=env_path)
 
     # get all redshift credentials and s3 bucket name and prefix
