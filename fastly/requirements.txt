@@ -4,7 +4,7 @@ boto3==1.14.48
 botocore==1.17.48
 docutils==0.15.2
 fsspec==0.8.0
-isort==5.4.2
+isort
 jmespath==0.10.0
 lazy-object-proxy==1.4.3
 mccabe==0.6.1
