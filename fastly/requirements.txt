@@ -10,7 +10,7 @@ lazy-object-proxy
 mccabe
 numpy
 pandas
-psycopg2
+psycopg2-binary
 pycodestyle
 pylint
 python-dateutil
