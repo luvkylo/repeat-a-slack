@@ -419,13 +419,13 @@ function listAllKeys() {
                                         const timeRangeDay = `${year1}-${month1}-${day1} 00:00:00`;
                                         const timeRangeMonth = `${year1}-${month1}-01 00:00:00`;
 
-                                        let rawTimeRangeDate = new Date();
-                                        rawTimeRangeDate = new Date(Date.UTC(rawTimeRangeDate.getUTCFullYear(), rawTimeRangeDate.getUTCMonth() - 2));
-                                        let rawTimeRangeMonth = rawTimeRangeDate.getUTCMonth() + 1;
-                                        const rawTimeRangeYear = rawTimeRangeDate.getUTCFullYear();
-                                        rawTimeRangeMonth = rawTimeRangeMonth < 10 ? `0${rawTimeRangeMonth}` : rawTimeRangeMonth;
+                                        // let rawTimeRangeDate = new Date();
+                                        // rawTimeRangeDate = new Date(Date.UTC(rawTimeRangeDate.getUTCFullYear(), rawTimeRangeDate.getUTCMonth() - 2));
+                                        // let rawTimeRangeMonth = rawTimeRangeDate.getUTCMonth() + 1;
+                                        // const rawTimeRangeYear = rawTimeRangeDate.getUTCFullYear();
+                                        // rawTimeRangeMonth = rawTimeRangeMonth < 10 ? `0${rawTimeRangeMonth}` : rawTimeRangeMonth;
 
-                                        const timeRangeMonth1 = `${rawTimeRangeYear}-${rawTimeRangeMonth}-01 00:00:00`;
+                                        // const timeRangeMonth1 = `${rawTimeRangeYear}-${rawTimeRangeMonth}-01 00:00:00`;
 
                                         const aggregatedCmd = {
                                           insert: {
@@ -440,7 +440,7 @@ function listAllKeys() {
                                           delete: {
                                             cwl_mediatailor_daily_unique_users_sessions_delete_cmd: `DELETE FROM cwl_mediatailor_daily_unique_users_sessions WHERE timestamps>=\'${timeRangeDay}\' and timestamps<\'${timeRange}\';`,
                                             cwl_mediatailor_monthly_unique_users_sessions_delete_cmd: `DELETE FROM cwl_mediatailor_monthly_unique_users_sessions WHERE timestamps>=\'${timeRangeMonth}\' and timestamps<\'${timeRange}\';`,
-                                            cwl_mediatailor_ad_decision_server_interactions_delete_cmd: `DELETE FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time<\'${timeRangeMonth1}\';`,
+                                            // cwl_mediatailor_ad_decision_server_interactions_delete_cmd: `DELETE FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time<\'${timeRangeMonth1}\';`,
                                           },
                                         };
 
