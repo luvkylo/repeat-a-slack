@@ -386,7 +386,7 @@ function writeToFile(region, key) {
                         parse.ingest_time = `${strMonth}/${strDay}/${year}`;
 
                         // write into JSON file for s3 upload
-                        temp = `${JSON.stringify(parse, null, 4)}\n`;
+                        temp = `${JSON.stringify(parse)}\n`;
                         writeObj[ti[count]].write.write(temp);
                       } catch (error) {
                         errorCount += 1;
