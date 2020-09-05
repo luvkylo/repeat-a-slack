@@ -383,7 +383,7 @@ function writeToFile(region, key) {
                           });
                         }
 
-                        parse.ingest_time = `${strMonth}/${strDay}/${year}`;
+                        parse.ingest_time = `${year}-${strMonth}-${strDay} 00:00:00.0000`;
 
                         // write into JSON file for s3 upload
                         temp = `${JSON.stringify(parse).replace(/\n|\r/g, '')}\n`;
