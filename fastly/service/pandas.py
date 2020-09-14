@@ -16,9 +16,9 @@ class ETLPandasService:
             return 1
         return 0
 
-    def match(self, regex, x):
+    def match(self, regex, x, group=1):
         if re.search(regex, x):
-            return re.search(regex, x).group(1)
+            return re.search(regex, x).group(group)
         return ''
 
     def mutiple_regex_condition(self, lst, x):
@@ -61,7 +61,7 @@ class ETLPandasService:
             self.df['channel_id'] = self.df['url'].apply(
                 lambda x: self.match(r"\/(\d+)\/", x))
             self.df['distributor'] = self.df['url'].apply(
-                lambda x: self.match(r"\/(dist|mt)\/(\w+|\d+)", x))
+                lambda x: self.match(r"\/(dist|mt)\/(\w+|\d+)", x, group=2))
             self.df['minutes_watched'] = self.df['url'].apply(
                 lambda x: self.regex_substring_count(r"\.ts", x)*6).astype('int')
             self.df['channel_start'] = self.df['url'].apply(
