@@ -37,7 +37,8 @@ def main():
     print("Downloading all Files now")
     jsonObj = S3.getDataframeObject(
         keyList=keyList,
-        bucket=env_var.s3_fastly_from_bucket_name
+        bucket=env_var.s3_fastly_from_bucket_name,
+        gmt=gmt
     )
 
     print("Got All Files")
