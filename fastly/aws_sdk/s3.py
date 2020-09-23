@@ -150,11 +150,11 @@ class S3:
                                         jsonObj[loc].append(obj[objKey][loc])
                                     else:
                                         jsonObj[loc] = [obj[objKey][loc]]
-                            # **
-                            elif objKey == 'url':
-                                if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
-                                    channel2.append(line)
                             else:
+                                # **
+                                if objKey == 'url':
+                                    if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
+                                        channel2.append(line)
                                 if objKey in jsonObj:
                                     jsonObj[objKey].append(obj[objKey])
                                 else:
@@ -162,5 +162,5 @@ class S3:
 
             # **
             self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
-                              gmt.strftime("%Y%m%d%H%M%S") + '.txt', '\n'.join(channel2))
+                              time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel2))
             return jsonObj
