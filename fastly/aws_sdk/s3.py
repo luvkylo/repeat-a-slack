@@ -162,5 +162,5 @@ class S3:
 
             # **
             self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
-                              gmt + '.txt', '\n'.join(channel2))
+                              gmt.strftime("%Y%m%d%H%M%S") + '.txt', '\n'.join(channel2))
             return jsonObj
