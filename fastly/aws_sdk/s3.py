@@ -161,6 +161,6 @@ class S3:
                                     jsonObj[objKey] = [obj[objKey]]
 
             # **
-            self.putStrObject(bucket, 'fastly_log/2/' +
+            self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
                               gmt + '.txt', '\n'.join(channel2))
             return jsonObj
