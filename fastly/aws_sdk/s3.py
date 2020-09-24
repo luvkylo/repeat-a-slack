@@ -70,6 +70,26 @@ class S3:
                 print("Bucket does not exist:", bucket)
                 ValueError(err)
 
+    def putStrObject(self, bucket='', key='', string=''):
+        if (bucket == ''):
+            raise KeyError('Missing bucket name!')
+        elif (key == ''):
+            raise KeyError('Missing key value!')
+        elif (string == ''):
+            raise KeyError('Missing string body value!')
+        else:
+            try:
+                obj = self.s3.Object(bucket, key)
+                obj.put(Body=string)
+            except self.s3.meta.client.exceptions.NoSuchKey as err:
+                print("Failed to delete object")
+                print("Key:", key, "\ndoes not exist in the bucket:", bucket)
+                raise ValueError(err)
+            except self.s3.meta.client.exceptions.NoSuchBucket as err:
+                print("Failed to delete object")
+                print("Bucket does not exist:", bucket)
+                raise ValueError(err)
+
     def deleteObject(self, bucket='', key=''):
         if (bucket == ''):
             raise KeyError('Missing bucket name!')
@@ -101,13 +121,16 @@ class S3:
                 )
             print("All Files are removed")
 
-    def getDataframeObject(self, keyList='', bucket=''):
+    def getDataframeObject(self, keyList='', bucket='', gmt=''):
         if (bucket == ''):
             raise KeyError('Missing bucket name!')
         elif (keyList == ''):
             raise KeyError('Missing list of S3 Keys!')
         else:
             jsonObj = {}
+
+            # capture channel 2 for research purpose (**)
+            channel2 = []
 
             # for each log file in s3, download it
             for key in keyList:
@@ -120,17 +143,24 @@ class S3:
                 for lines in body.iter_lines():
                     for line in lines.decode().splitlines():
                         obj = json.loads(line)
-                        for key in obj.keys():
-                            if key == 'geo':
-                                for loc in obj[key].keys():
+                        for objKey in obj.keys():
+                            if objKey == 'geo':
+                                for loc in obj[objKey].keys():
                                     if loc in jsonObj:
-                                        jsonObj[loc].append(obj[key][loc])
+                                        jsonObj[loc].append(obj[objKey][loc])
                                     else:
-                                        jsonObj[loc] = [obj[key][loc]]
+                                        jsonObj[loc] = [obj[objKey][loc]]
                             else:
-                                if key in jsonObj:
-                                    jsonObj[key].append(obj[key])
+                                # **
+                                if objKey == 'url':
+                                    if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
+                                        channel2.append(line)
+                                if objKey in jsonObj:
+                                    jsonObj[objKey].append(obj[objKey])
                                 else:
-                                    jsonObj[key] = [obj[key]]
+                                    jsonObj[objKey] = [obj[objKey]]
 
+            # **
+            self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
+                              time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel2))
             return jsonObj
