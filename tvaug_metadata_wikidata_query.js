@@ -70,7 +70,7 @@ Object.keys(regions).forEach((region) => {
               ROW_NUMBER() OVER (PARTITION BY title_id
                                  ORDER BY name, episode_number, series_id, region, is_adult, short_synopsis) AS title_id_ranked
        FROM tv_aug_titles_metadata
-       WHERE is_adult=FALSE
+       WHERE is_adult=FALSE and ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}'
        ORDER BY title_id, name, episode_number, series_id, region, is_adult, short_synopsis) AS ranked
     WHERE ranked.title_id_ranked = 1
   ) as titles
@@ -82,6 +82,7 @@ Object.keys(regions).forEach((region) => {
               ROW_NUMBER() OVER (PARTITION BY title_id, provider_id
                                  ORDER BY discoverable_as_vod) AS title_id_ranked
        FROM tv_aug_contents_metadata
+       WHERE ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}'
        ORDER BY title_id, discoverable_as_vod, provider_id) AS ranked
     WHERE ranked.title_id_ranked = 1
   ) as contents on contents.title_id=logs.external_identifier
@@ -92,6 +93,7 @@ Object.keys(regions).forEach((region) => {
               ROW_NUMBER() OVER (PARTITION BY series_id
                                  ORDER BY series_name, season_number) AS series_id_ranked
        FROM tv_aug_series_metadata
+       WHERE ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}'
        ORDER BY series_id, series_name, season_number) AS ranked
     WHERE ranked.series_id_ranked = 1
   ) as series on series.series_id=titles.series_id
@@ -102,6 +104,7 @@ Object.keys(regions).forEach((region) => {
               ROW_NUMBER() OVER (PARTITION BY title_id
                                  ORDER BY channel_id) AS title_id_ranked
        FROM tv_aug_events_metadata
+       WHERE ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}'
        ORDER BY title_id, channel_id) AS ranked
     WHERE ranked.title_id_ranked = 1
   ) as events on events.title_id=logs.external_identifier
@@ -126,7 +129,6 @@ let strArr = [];
 let respond = [];
 let recorded = false;
 
-let i = 0;
 let n = 0;
 
 function request(url, headers, bar1, temp, retry = 0) {
@@ -187,7 +189,6 @@ function query(region) {
   return new Promise((reso, rej) => {
     // redshift query to get the top 1000 crids
     redshiftClient2.query(regions[region].queryKPICmd, async (queryErr, queryData) => {
-      i += 1;
       if (queryErr) rej(new Error({ err: queryErr }));
       else {
         console.log(Buffer.byteLength(JSON.stringify(queryData.rows), 'utf8'));
@@ -260,15 +261,7 @@ function query(region) {
             throw new Error(e);
           } else {
             console.log(`\nAll data written into table for region: ${region}`);
-            if (i === Object.keys(regions).length) {
-              redshiftClient2.close(() => {
-                console.log('\nclosed db');
-                reso({ bar: bar1, data: d });
-              });
-            } else {
-              reso({ bar: bar1, data: d });
-            }
-            // reso({ bar: bar1, data: d });
+            reso({ bar: bar1, data: d });
           }
         });
       }
@@ -295,42 +288,45 @@ try {
           });
           complete.bar.stop();
           console.log(complete.data);
-
-          // to remove data from tv_aug_(table)_metadata that is 2 month or older
-          const ti = ['events', 'channels', 'contents', 'credits', 'genres',
-            'pictures', 'products', 'series', 'titles'];
-
-          date = new Date();
-          date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2));
-
-          const deleteMonth = date.getUTCMonth() + 1;
-          const deleteYear = date.getUTCFullYear();
-
-          const deleteStrMonth = deleteMonth < 10 ? `0${deleteMonth}` : deleteMonth;
-
-          const deleteDate = `${deleteStrMonth}/${endStrDay}/${deleteYear}`;
-
-          ti.forEach((table) => {
-            const deleteCmd = `DELETE FROM tv_aug_${deleteDate}_metadata
-             WHERE ingest_time<${startDate}`;
-
-            redshiftClient2.query(deleteCmd, (err, data) => {
-              if (err) throw new Error(err);
-              else {
-                console.log(data);
-                if (table === 'titles') {
-                  redshiftClient2.close(() => {
-                    console.log('\nclosed db');
-                  });
-                }
-              }
-            });
-          });
         } catch (e) {
           console.log(e);
           throw new Error(e);
         }
       }
+
+      // to remove data from tv_aug_(table)_metadata that is 2 month or older
+      const ti = ['events', 'channels', 'contents', 'credits', 'genres',
+        'pictures', 'products', 'series', 'titles'];
+
+      date = new Date();
+      date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 2));
+
+      const deleteMonth = date.getUTCMonth() + 1;
+      const deleteYear = date.getUTCFullYear();
+
+      const deleteStrMonth = deleteMonth < 10 ? `0${deleteMonth}` : deleteMonth;
+
+      const deleteDate = `${deleteStrMonth}/${endStrDay}/${deleteYear}`;
+
+      let last = 0;
+
+      ti.forEach((table) => {
+        const deleteCmd = `DELETE FROM tv_aug_${table}_metadata
+       WHERE ingest_time<${deleteDate}`;
+
+        redshiftClient2.query(deleteCmd, (err, data) => {
+          if (err) throw new Error(err);
+          else {
+            console.log(data);
+            last += 1;
+            if (last === ti.length) {
+              redshiftClient2.close(() => {
+                console.log('\nclosed db');
+              });
+            }
+          }
+        });
+      });
     }
   });
 } catch (e) {
