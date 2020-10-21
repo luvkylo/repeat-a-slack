@@ -40,6 +40,14 @@ const day = date.getUTCDate();
 const strMonth = month < 10 ? `0${month}` : month;
 const strDay = day < 10 ? `0${day}` : day;
 
+date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 3,
+  date.getUTCDate() + 1));
+
+const deleteMonth = date.getUTCMonth() + 1;
+const deleteYear = date.getUTCFullYear();
+
+const deleteStrMonth = deleteMonth < 10 ? `0${deleteMonth}` : deleteMonth;
+
 let count = 0;
 const ti = ['"events"', '"channels"', '"contents"', '"credits"', '"genres"', '"pictures"', '"products"', '"series"', '"titles"'];
 const startTime = new Date();
@@ -383,10 +391,10 @@ function writeToFile(region, key) {
                           });
                         }
 
-                        parse.ingest_time = `${strMonth}/${strDay}/${year}`;
+                        parse.ingest_time = `${year}-${strMonth}-${strDay} 00:00:00.0000`;
 
                         // write into JSON file for s3 upload
-                        temp = `${JSON.stringify(parse, null, 4)}\n`;
+                        temp = `${JSON.stringify(parse).replace(/\n|\r/g, '')}\n`;
                         writeObj[ti[count]].write.write(temp);
                       } catch (error) {
                         errorCount += 1;
@@ -739,27 +747,35 @@ async function listAllKeys() {
 
                   // const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
                   const copyCmd = `COPY tv_aug_${table}_metadata from \'s3://${property.aws.toBucketName}/${property.aws.tvaugJsonPutKeyFolder}${year}_${month}_${day}_${table}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' dateformat \'auto\' REGION AS \'eu-central-1\';`;
+                  const deleteCmd = `DELETE FROM tv_aug_${table}_metadata WHERE ingest_time<'${deleteYear}-${deleteStrMonth}-01'`;
 
                   redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
                     if (queryErr) throw new Error(queryErr);
                     else {
                       console.log(migrateData);
                       console.log(`Migrated to Redshift table tv_aug_${table}_metadata`);
-                      if (x === (ti.length - 1)) {
-                        redshiftClient2.close();
-                        console.log('Removing temporary file...');
+                      redshiftClient2.query(deleteCmd, (delErr, delData) => {
+                        if (delErr) throw new Error(delErr);
+                        else {
+                          console.log(delData);
+                          console.log(`Deleted old data from table tv_aug_${table}_metadata where ingest_time<'${deleteYear}-${deleteStrMonth}-01'`);
+                          if (x === (ti.length - 1)) {
+                            redshiftClient2.close();
+                            console.log('Removing temporary file...');
 
-                        // Remove the temporary file
-                        nameArr.forEach((namePath) => {
-                          try {
-                            fs.unlinkSync(namePath);
-                            console.log(`File removed: ${namePath}`);
-                          } catch (fileErr) {
-                            console.log(`Error: ${fileErr}`);
-                            throw new Error(fileErr);
+                            // Remove the temporary file
+                            nameArr.forEach((namePath) => {
+                              try {
+                                fs.unlinkSync(namePath);
+                                console.log(`File removed: ${namePath}`);
+                              } catch (fileErr) {
+                                console.log(`Error: ${fileErr}`);
+                                throw new Error(fileErr);
+                              }
+                            });
                           }
-                        });
-                      }
+                        }
+                      });
                     }
                   });
                 }
