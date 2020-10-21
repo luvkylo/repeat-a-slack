@@ -419,6 +419,14 @@ function listAllKeys() {
                                         const timeRangeDay = `${year1}-${month1}-${day1} 00:00:00`;
                                         const timeRangeMonth = `${year1}-${month1}-01 00:00:00`;
 
+                                        let rawTimeRangeDate = new Date();
+                                        rawTimeRangeDate = new Date(Date.UTC(rawTimeRangeDate.getUTCFullYear(), rawTimeRangeDate.getUTCMonth() - 1));
+                                        let rawTimeRangeMonth = rawTimeRangeDate.getUTCMonth() + 1;
+                                        const rawTimeRangeYear = rawTimeRangeDate.getUTCFullYear();
+                                        rawTimeRangeMonth = rawTimeRangeMonth < 10 ? `0${rawTimeRangeMonth}` : rawTimeRangeMonth;
+
+                                        const timeRangeMonth1 = `${rawTimeRangeYear}-${rawTimeRangeMonth}-01 00:00:00`;
+
                                         const aggregatedCmd = {
                                           insert: {
                                             cwl_mediatailor_impression_beacon_cmd: `INSERT INTO cwl_mediatailor_impression_beacon ( SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, beacon_info_tracking_event, CASE WHEN CONCAT(CONCAT(REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 2)), \'.\') ,REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 1)))=\'.\' THEN NULL ELSE CONCAT(CONCAT(REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 2)), \'.\') ,REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 1))) END as uri_source, COUNT(beacon_info_tracking_event) as beacon_tracking_event_count, origin_id, event_type, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE beacon_info_tracking_event=\'impression\' and request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, uri_source, event_type, beacon_info_tracking_event, city, country_iso, region ORDER BY timestamps asc);`,
@@ -432,7 +440,7 @@ function listAllKeys() {
                                           delete: {
                                             cwl_mediatailor_daily_unique_users_sessions_delete_cmd: `DELETE FROM cwl_mediatailor_daily_unique_users_sessions WHERE timestamps>=\'${timeRangeDay}\' and timestamps<\'${timeRange}\';`,
                                             cwl_mediatailor_monthly_unique_users_sessions_delete_cmd: `DELETE FROM cwl_mediatailor_monthly_unique_users_sessions WHERE timestamps>=\'${timeRangeMonth}\' and timestamps<\'${timeRange}\';`,
-                                            cwl_mediatailor_ad_decision_server_interactions_delete_cmd: `DELETE FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time<\'${timeRangeMonth}\';`,
+                                            cwl_mediatailor_ad_decision_server_interactions_delete_cmd: `DELETE FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time<\'${timeRangeMonth1}\';`,
                                           },
                                         };
 
