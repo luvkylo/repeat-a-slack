@@ -129,8 +129,9 @@ class S3:
         else:
             jsonObj = {}
 
-            # capture channel 2 for research purpose (**)
+            # capture channel 2 and empty channel id for research purpose (**)
             channel2 = []
+            emptyChannel = []
 
             # for each log file in s3, download it
             for key in keyList:
@@ -155,6 +156,8 @@ class S3:
                                 if objKey == 'url':
                                     if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
                                         channel2.append(line)
+                                    if re.search(r"\/(\d+)\/", obj[objKey]) == None or (re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == ''):
+                                        emptyChannel.append(line)
                                 if objKey in jsonObj:
                                     jsonObj[objKey].append(obj[objKey])
                                 else:
@@ -163,4 +166,6 @@ class S3:
             # **
             self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
                               time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel2))
+            self.putStrObject('prd-freq-report-data-fr', 'fastly_log/emptyChannel/' +
+                              time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(emptyChannel))
             return jsonObj
