@@ -420,7 +420,7 @@ function listAllKeys() {
                                         const timeRangeMonth = `${year1}-${month1}-01 00:00:00`;
 
                                         let rawTimeRangeDate = new Date();
-                                        rawTimeRangeDate = new Date(Date.UTC(rawTimeRangeDate.getUTCFullYear(), rawTimeRangeDate.getUTCMonth() - 2));
+                                        rawTimeRangeDate = new Date(Date.UTC(rawTimeRangeDate.getUTCFullYear(), rawTimeRangeDate.getUTCMonth() - 1));
                                         let rawTimeRangeMonth = rawTimeRangeDate.getUTCMonth() + 1;
                                         const rawTimeRangeYear = rawTimeRangeDate.getUTCFullYear();
                                         rawTimeRangeMonth = rawTimeRangeMonth < 10 ? `0${rawTimeRangeMonth}` : rawTimeRangeMonth;
