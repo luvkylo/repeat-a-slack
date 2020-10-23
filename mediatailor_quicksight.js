@@ -136,7 +136,9 @@ function uploadPart(multipart, partParams, tryNum = 1) {
         } else {
           throw new Error(`Failed uploading part: #${partParams.PartNumber}`);
         }
-        throw new Error(`Retrying part #${partParams.PartNumber} already.`);
+        console.log(`Retrying part #${partParams.PartNumber} already.`);
+        return;
+        // throw new Error(`Retrying part #${partParams.PartNumber} already.`);
       }
 
       // Append to the multipartMap for final assembly in completeMultipartUpload function
