@@ -166,6 +166,7 @@ class S3:
             # **
             self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
                               time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel2))
-            self.putStrObject('prd-freq-report-data-fr', 'fastly_log/emptyChannel/' +
-                              time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(emptyChannel))
+            if len(emptyChannel) > 0:
+                self.putStrObject('prd-freq-report-data-fr', 'fastly_log/emptyChannel/' +
+                                  time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(emptyChannel))
             return jsonObj
