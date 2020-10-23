@@ -198,7 +198,7 @@ function listAllKeys() {
           }
         });
 
-        hour = hour > 12 ? '12' : '00';
+        hour = hour >= 12 ? '12' : '00';
 
         multiPartParams.Key = `${property.aws.csvPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}.csv`;
         console.log(`${property.aws.csvPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}.csv`);

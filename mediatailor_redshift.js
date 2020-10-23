@@ -46,13 +46,14 @@ const lastDay = lastMonth.getUTCDate();
 
 let month = date.getUTCMonth() + 1;
 const year = date.getUTCFullYear();
-const hour = date.getUTCHours();
-let day = hour >= 12 ? date.getUTCDate() : date.getUTCDate() - 1;
+let hour = date.getUTCHours();
+let day = date.getUTCDate();
 month = day === 0 ? month - 1 : month;
 month = month < 10 ? `0${month}` : month;
 day = day === 0 ? lastDay : day;
 day = day < 10 ? `0${day}` : day;
 let minute = date.getUTCMinutes();
+hour = hour < 10 ? `0${hour}` : hour;
 minute = minute < 10 ? `0${minute}` : minute;
 
 console.log(`Processing file on this day: ${date.toISOString()}`);
