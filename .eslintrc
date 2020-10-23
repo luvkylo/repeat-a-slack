@@ -21,7 +21,8 @@
         "no-control-regex": "off",
         "camelcase": "off",
         "no-nested-ternary": "off",
-        "no-useless-catch": "off",
-        "no-useless-escape": "off"
+        "no-useless-escape": "off",
+        "no-await-in-loop": "off",
+        "no-async-promise-executor": "off"
     }
 }

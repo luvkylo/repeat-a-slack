@@ -7,26 +7,11 @@
 ### Data Flow
 1. Mediatailor events are logged into Cloudwatch
 2. Kinesis Firehouse log events from Cloudwatch to S3 every 15 minutes to the following location:
-```
-prd-cloudwatch-exported-logs/MediaTailor-AdDecisionServerInteractions/{Firehouse/year}/{month}/{day}/{hour}/my-delivery-stream-for-frequency-account-1-{year}-{month}-{day}-{hour}-{minute}-{second}-{randFileCode}
-```
-3. The log is then downloaded to Jenkins for data manipulation is re-upload to the following two locations as CSV and JSON:
-```
-prd-freq-report-data-fr/mediaTailor-quicksight-data-storage/mediaTailorData-{month}{day}{year}-{hour}.csv
-```
-```
-prd-freq-report-data-fr/mediaTailor-redshift-data-storage/mediaTailorData-{month}{day}{year}-{hour}{minute}.json
-```
-4. The data in JSON file is then copied to a Redshift Database in the following location using the COPY query command:
-```
-JCDB url: jdbc:redshift://qa-freq-reporting-warehouse-fr.ctxuplv22tg4.eu-central-1.redshift.amazonaws.com:5439/reporting
-Schema: Public
-Table Name: cwl_mediatailor_ad_decision_server_interactions
-```
-5. The data in CSV file is being read by QuickSight SPICE, and is load into the dataset (scheduled refresh hourly):
-```
-mediatailor_datasource
-```
+3. The log is then downloaded to Jenkins for data manipulation is re-upload to the following two locations as 
+4. The data in JSON file is then copied to a Redshift Database using the COPY query
+5. The data in CSV file is being read by QuickSight SPICE, and is load into the dataset (scheduled refresh hourly)
+Confluence link:
+https://docs.frequency.com/display/CO/MediaTailor+Cloudwatch+Data+to+Quicksight
 ------------------------------
 ### Github Reporsitory for QA
 ```
@@ -82,5 +67,20 @@ COPY cwl_mediatailor_ad_decision_server_interactions from 's3://prd-freq-report-
 ```
 
 ## TV Augmentation
+-------------------------------
+### Data Flow
+1. LGI pushes raw JSON file into our s3 bucket daily
+2. The script download all files and clean the data
+3. The script then split the data into their first level objects (i.e. events, channels, contents, credits, genres, pictures, products, series, titles)
+4. The script then upload them to another s3 bucket
+5. The script will then run a COPY command to ingest those data into Redshift
+Confluence link:
+https://docs.frequency.com/display/CO/TV_Aug+Metadata+%28LGI%29+From+S3+to+Redshift
+------------------------------
+### Github Reporsitory for QA
+```
+https://github.com/frequency/frequency-data-analyze/tree/LGI_metadata_dev
+```
+The scripts are run in weekly on Monday 1AM UTC.
 
 ## Fastly

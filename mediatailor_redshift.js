@@ -1,13 +1,16 @@
+/* eslint-disable max-len */
+/* eslint-disable no-await-in-loop */
 require('dotenv').config();
 
 const AWS = require('aws-sdk');
-// let property = require("./property_local");
 const zlib = require('zlib');
 const Redshift = require('node-redshift');
 const fs = require('fs');
 const path = require('path');
-const splitFile = require('split-file');
 const cliProgress = require('cli-progress');
+const geoip = require('geoip-lite');
+const { s3multipartUpload } = require('./s3_multipart_uploader');
+// const property = require('./property_local');
 const property = require('./property');
 
 // Config AWS connection
@@ -27,7 +30,7 @@ let completed = '';
 
 s3.getObject({
   Bucket: property.aws.toBucketName,
-  Key: 'completedRecord.txt',
+  Key: 'prd_completedRecord.txt',
 }, (err, data) => {
   if (err) throw err;
   else completed = data.Body.toString();
@@ -59,22 +62,11 @@ minute = minute < 10 ? `0${minute}` : minute;
 console.log(`Processing file on this day: ${date.toISOString()}`);
 
 // Initialize variables for mutiparts upload
-const fileName = 'temp.json';
+const fileName = `mediaTailorData-${month}${day}${year}-${hour}${minute}.json`;
 const filePath = path.join(__dirname, 'JSON', fileName);
-const fileKey = fileName;
-const startTime = new Date();
-let partNum = 0;
-const partSize = 1024 * 1024 * 50;
-// 50 represent 50 MB, the AWS recommand file size to be used in multipart upload
-const maxUploadTries = 3;
-const multipartMap = {
-  Parts: [],
-};
 let arr = [];
-let nameArr = [];
-const partObj = {};
-let finalPartDone = false;
 let lastModified = '';
+let lookBack = false;
 
 // Create and open stream to write to temporary JSON file
 const stream = fs.createWriteStream(filePath, { flags: 'w' });
@@ -90,481 +82,441 @@ const getParams = {
   Bucket: property.aws.fromBucketName,
 };
 
-const multiPartParams = {
-  Bucket: property.aws.toBucketName,
-  Key: `${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json`,
-  ContentType: 'application/json',
-};
-
 console.log(`Looking into the bucket prefix: ${bucketParams.Prefix}`);
-
-// Function for completeing multipart upload
-function completeMultipartUpload(doneParams) {
-  // S3 call
-  s3.completeMultipartUpload(doneParams, (err, data) => {
-    if (err) {
-      console.log('An error occurred while completing the multipart upload');
-      throw err;
-    } else {
-      // When upload are complete
-      const delta = (new Date() - startTime) / 1000;
-      console.log('Completed upload in', delta, 'seconds');
-      console.log('Final upload data:', data);
-      console.log('Removing temporary file...');
-
-      // Remove the temporary file
-      try {
-        fs.unlinkSync(filePath);
-        console.log('File removed');
-      } catch (fileErr) {
-        throw fileErr;
-      }
-
-      nameArr.forEach((namePath) => {
-        try {
-          fs.unlinkSync(namePath);
-          console.log(`File removed: ${namePath}`);
-        } catch (fileErr) {
-          throw fileErr;
-        }
-      });
-
-      // Run Redshift query
-      console.log('Running Redshift query...');
-      // let copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
-      const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
-      redshiftClient2.connect((connectErr) => {
-        if (connectErr) throw connectErr;
-        else {
-          console.log('Connected to Redshift!');
-          redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
-            if (queryErr) throw queryErr;
-            else {
-              console.log(migrateData);
-              console.log('Migrated to Redshift');
-              s3.putObject({
-                Bucket: property.aws.toBucketName,
-                Body: lastModified.toISOString(),
-                Key: 'completedRecord.txt',
-              }, (uploadErr, uploadData) => {
-                if (uploadErr) throw uploadErr;
-                else {
-                  console.log('Record Saved!');
-                  console.log(uploadData);
-                }
-              });
-              redshiftClient2.close();
-            }
-          });
-        }
-      });
-    }
-  });
-}
-
-// Function to upload parts
-function uploadPart(multipart, partParams, tryNum = 1) {
-  // S3 call
-  s3.uploadPart(partParams, (multiErr, mData) => {
-    // If encounter error, retry for 3 times
-    if (multiErr) {
-      console.log('multiErr, upload part error:', multiErr);
-      if (tryNum < maxUploadTries) {
-        console.log('Retrying upload of part: #', partParams.PartNumber);
-        uploadPart(multipart, partParams, tryNum + 1);
-      } else {
-        throw new Error(`Failed uploading part: #${partParams.PartNumber}`);
-      }
-      return;
-    }
-
-    // Append to the multipartMap for final assembly in completeMultipartUpload function
-    multipartMap.Parts[partParams.PartNumber - 1] = {
-      ETag: mData.ETag,
-      PartNumber: Number(partParams.PartNumber),
-    };
-    console.log('Completed part', partParams.PartNumber);
-    console.log('mData', mData);
-
-    delete partObj[partParams.PartNumber];
-    if (Object.entries(partObj).length !== 0 && !finalPartDone) return;
-    // complete only when all parts uploaded
-
-    if (!finalPartDone) {
-      finalPartDone = true;
-      const doneParams = {
-        Bucket: property.aws.toBucketName,
-        Key: `${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json`,
-        MultipartUpload: multipartMap,
-        UploadId: multipart.UploadId,
-      };
-
-      // When all parts are uploaded
-      console.log('Completing upload...');
-      completeMultipartUpload(doneParams);
-    }
-  });
-}
 
 console.log('Getting all objects in S3 bucket...');
 
-// Get a list of current compressed logs in the S3 bucket
-function listAllKeys() {
-  s3.listObjectsV2(bucketParams, (listErr, listData) => {
-    if (listErr) throw listErr;
-    else {
-      const contents = listData.Contents;
-      arr = arr.concat(contents);
-
-      if (listData.IsTruncated) {
-        bucketParams.ContinuationToken = listData.NextContinuationToken;
-        listAllKeys();
-      } else {
-        // Sort the logs by last modified date
-        console.log('Sorting the objects by dates...');
-        arr.sort((a, b) => ((b.LastModified > a.LastModified) ? 1
-          : ((a.LastModified > b.LastModified) ? -1 : 0)));
-
-        // Check if the lastest log is added
-        console.log('Checking if the latest log is added...');
-
-        lastModified = arr[0].LastModified;
-
-        if (arr[0].LastModified.toISOString() === completed) {
-          console.log('Recent file does not seems to be present. Detail as follow:');
-          console.log(`The latest log is: ${arr[0].LastModified.toISOString()}`);
-        } else {
-          const currentGz = [];
-
-          console.log('Appending all recent file key to array for looping...');
-          currentGz.push(arr[0].Key);
-
-          const itemLastModified = new Date(arr[0].LastModified);
-          console.log(`Item last modified: ${itemLastModified.toISOString()}`);
-          console.log(`Processing files on this day: ${date.toISOString()}`);
-
-          arr = [];
-
-          const progress = new cliProgress.SingleBar({}, cliProgress.Presets.legacy);
-
-          // Create a promise array to hold all promises
-          const promises = [];
-          currentGz.forEach((key) => {
-            // Add promise to the array
-            promises.push(new Promise((resolve) => {
-              getParams.Key = key;
-
-              // Get the file using key
-              s3.getObject(getParams, (getErr, getData) => {
-                if (getErr) throw getErr;
-                else {
-                  // Uncompress the data returned
-                  const buffer = new Buffer.alloc(getData.ContentLength, getData.Body, 'base64');
-                  zlib.unzip(buffer, (zipErr, zipData) => {
-                    if (zipErr) throw zipErr;
-                    else {
-                      // Split each data into array when new line
-                      let logData = zipData.toString().split('{"messageType"');
-
-                      // Create variables for json
-                      const objArr = ['awsAccountId', 'customerId', 'eventDescription', 'eventType', 'originId', 'requestId', 'sessionId', 'sessionType', 'beaconInfo'];
-
-                      logData = logData.filter((el) => el !== '');
-                      let { length } = logData;
-                      progress.start(length);
-
-                      // For every row of data
-                      logData.forEach((logsItem) => {
-                        const logs = `{"messageType"${logsItem}`;
-                        let logObj = JSON.parse(logs);
-
-                        if (logObj.logEvents.length > 1) {
-                          length += logObj.logEvents.length - 1;
-                          progress.setTotal(length);
-                        }
-
-                        logObj.logEvents.forEach((logItem) => {
-                          const log = logItem;
-                          const regex = /\u0000/g;
-                          const matchArr = log.message.match(regex);
-                          if (matchArr) {
-                            log.message = log.message.replace(/\u0000/, `(NULL*${matchArr.length})`);
-                            log.message = log.message.replace(regex, '');
-                          }
-
-                          const epochTime = new Date(0);
-                          epochTime.setUTCMilliseconds(log.timestamp);
-                          const stampYear = epochTime.getUTCFullYear();
-                          let stampMonth = epochTime.getUTCMonth() + 1;
-                          stampMonth = stampMonth < 10 ? `0${stampMonth}` : stampMonth;
-                          let stampDay = epochTime.getUTCDate();
-                          stampDay = stampDay < 10 ? `0${stampDay}` : stampDay;
-                          let stampHour = epochTime.getUTCHours();
-                          stampHour = stampHour < 10 ? `0${stampHour}` : stampHour;
-                          let stampMinute = epochTime.getUTCMinutes();
-                          stampMinute = stampMinute < 10 ? `0${stampMinute}` : stampMinute;
-                          let stampSec = epochTime.getUTCSeconds();
-                          stampSec = stampSec < 10 ? `0${stampSec}` : stampSec;
-                          let stampMiliSec = epochTime.getUTCMilliseconds();
-                          stampMiliSec = stampMiliSec < 100 ? `0${stampMiliSec}` : stampMiliSec;
-                          stampMiliSec = stampMiliSec < 10 ? `0${stampMiliSec}` : stampMiliSec;
-                          const time = `${stampYear}-${stampMonth}-${stampDay}T${stampHour}:${stampMinute}:${stampSec}.${stampMiliSec}Z`;
-
-                          let message1; let message2; let message3; let message4;
-                          message1 = '';
-                          message2 = '';
-                          message3 = '';
-                          message4 = '';
-
-                          let { message } = log;
-                          const jsonObj = JSON.parse(message);
-
-                          if (Buffer.byteLength(message) > 65535) {
-                            const tempBuffer = Buffer.from(message);
-                            message1 = tempBuffer.slice(0, 65535).toString();
-                            message2 = tempBuffer.slice(65536).toString();
-                          } else {
-                            message1 = message;
-                          }
-
-                          if (Buffer.byteLength(message2) > 65535) {
-                            const tempBuffer = Buffer.from(message2);
-                            message2 = tempBuffer.slice(0, 65535).toString();
-                            message3 = tempBuffer.slice(65536).toString();
-                          }
-
-                          if (Buffer.byteLength(message3) > 65535) {
-                            const tempBuffer = Buffer.from(message3);
-                            message3 = tempBuffer.slice(0, 65535).toString();
-                            message4 = tempBuffer.slice(65536).toString();
-                          }
-
-                          if (Buffer.byteLength(message4) > 65535) {
-                            const tempBuffer = Buffer.from(message4);
-                            message4 = tempBuffer.slice(0, 65535).toString();
-                            message = tempBuffer.slice(65536).toString();
-                            console.log(message4);
-                            console.log(message);
-                          }
-
-                          objArr.forEach((ele) => {
-                            if (!jsonObj[ele]) {
-                              jsonObj[ele] = '';
-                            }
-                          });
-
-                          // Create an object to be transform into JSON
-                          logObj = {
-                            request_time: time,
-                            aws_account_id: jsonObj.awsAccountId,
-                            customer_id: jsonObj.customerId,
-                            event_description: jsonObj.eventDescription,
-                            event_timestamp: jsonObj.eventTimestamp,
-                            event_type: jsonObj.eventType,
-                            origin_id: jsonObj.originId,
-                            request_id: jsonObj.requestId,
-                            session_id: jsonObj.sessionId,
-                            session_type: jsonObj.sessionType,
-                            beacon_info_beacon_http_response_code: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconHttpResponseCode !== 'undefined') ? jsonObj.beaconInfo.beaconHttpResponseCode : ''),
-                            beacon_info_beacon_uri: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? jsonObj.beaconInfo.beaconUri : ''),
-                            beacon_info_headers_0_name: ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].name !== 'undefined') ? jsonObj.beaconInfo.headers[0].name : ''),
-                            beacon_info_headers_0_value: ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[0].value !== 'undefined') ? jsonObj.beaconInfo.headers[0].value : ''),
-                            beacon_info_headers_1_name: ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].name !== 'undefined') ? jsonObj.beaconInfo.headers[1].name : ''),
-                            beacon_info_headers_1_value: ((jsonObj.beaconInfo && jsonObj.beaconInfo.headers && typeof jsonObj.beaconInfo.headers[1].value !== 'undefined') ? jsonObj.beaconInfo.headers[1].value : ''),
-                            beacon_info_tracking_event: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.trackingEvent !== 'undefined') ? jsonObj.beaconInfo.trackingEvent : ''),
-                            message1,
-                            message2,
-                            message3,
-                            message4,
-                          };
-
-                          // Transform object into JSON string
-                          const temp = JSON.stringify(logObj).replace(/\n|\r/g, '');
-
-                          // Write the JSON string into the temporary JSON file
-                          stream.write(`${temp}\n`);
-                          progress.increment();
-                        });
-                      });
-                      // When finish all data parsing for this file,
-                      // return a resolve signal for promise
-                      resolve('done');
-                    }
-                  });
-                }
-              });
-            }));
-          });
-
-          // When all file has been called and all data has been parsed and
-          // resolve signal for all promises are returned
-          Promise.all(promises)
-            .then(() => {
-              progress.stop();
-              // Close the writing stream to file so all data is settled
-              stream.end(() => {
-                // split the JSON file incase it reaches the Buffer limit at 2147483647 bytes
-                splitFile.splitFileBySize(`${__dirname}/JSON/temp.json`, 2147483647)
-                  .then((names) => {
-                    // Once all data is settled, Read the JSON file and
-                    // prepare its data to be split into parts for mulipart uploads
-                    console.log('All data is written to temporary JSON file(s)!');
-
-                    const buffers = {};
-                    let last = '';
-                    const first = names[0];
-                    let i = 1;
-
-                    // Once split to different JSON file
-                    names.forEach((name) => {
-                      // Read each buffer and append to an object with structure:
-                      // {
-                      //     "Part1 __dirname": {
-                      //         buffer: < Buffer>,
-                      //         next: "Part2 __dirname",
-                      //         num: "Part num, e.g. 1"
-                      //     },
-                      //     "Part2 __dirname": {
-                      //         buffer: < Buffer>,
-                      //         next: (if there is another part) "Part3 __dirname",
-                      //         num: "Part num, e.g. 1"
-                      //     },
-                      // }
-                      buffers[name] = {
-                        num: i,
-                      };
-                      i += 1;
-                      if (last !== '') {
-                        const buffObj = buffers[last];
-                        buffObj.next = name;
-                        buffers[last] = buffObj;
-                      }
-                      last = name;
-                    });
-                    nameArr = names;
-
-                    // Get the total length of buffer
-                    let length = 0;
-
-                    Object.keys(buffers).forEach((key) => {
-                      const stat = fs.statSync(key);
-                      const { size } = stat;
-                      length += size;
-                    });
-
-                    console.log(`Total buffer bytes: ${length}`);
-
-                    // Calculate the number of parts needed to upload
-                    // the whole file with each parts in 100 MB size
-                    console.log('Creating multipart upload for:', fileKey);
-
-                    // S3 call to get a multipart upload ID
-                    s3.createMultipartUpload(multiPartParams, (mpErr, multipart) => {
-                      if (mpErr) { console.log('Error!', mpErr); return; }
-                      console.log('Got upload ID', multipart.UploadId);
-
-                      let bufferObj = buffers[first];
-                      bufferObj.buffer = fs.readFileSync(first);
-
-                      // Grab each partSize chunk and upload it as a part
-                      for (let rangeStart = 0; rangeStart < length; rangeStart += partSize) {
-                        partNum += 1;
-                        const end = Math.min(rangeStart + partSize, length);
-                        let start = rangeStart;
-                        const { buffer } = bufferObj;
-                        let body = '';
-
-                        // Collect bytes from different buffer and append to the body param
-                        // If first buffer
-                        if (bufferObj.num === 1) {
-                          // If part length exceed buffer current buffer length, get the next buffer
-                          if ((bufferObj.num * 2147483647) > rangeStart
-                          && (bufferObj.num * 2147483647) < end) {
-                            buffers[bufferObj.next].buffer = fs.readFileSync(bufferObj.next);
-
-                            const part1 = buffer.slice(start, 2147483647);
-                            const part2 = buffers[bufferObj.next].buffer.slice(0, end - 2147483647);
-
-                            // Concat the two part and change the body param
-                            body = Buffer.concat([part1, part2]);
-
-                            console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                            console.log(`Part ${bufferObj.num} Byte end: ${2147483647}`);
-                            console.log(`Part ${buffers[bufferObj.next].num} Byte start: ${0}`);
-                            console.log(`Part ${buffers[bufferObj.next].num} Byte end: ${end - 2147483647}`);
-                            console.log(`Total byte: ${end}`);
-
-                            // Move to next buffer object
-                            bufferObj = buffers[bufferObj.next];
-
-                            // Else proceed as normal in the same buffer
-                          } else {
-                            body = buffer.slice(start, end);
-                            console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                            console.log(`Part ${bufferObj.num} Byte end: ${end}`);
-                            console.log(`Total byte: ${end}`);
-                          }
-
-                          // Else change the start and end byte to accomadate moving to a new buffer
-                        } else {
-                          start = rangeStart - (2147483647 * (bufferObj.num - 1));
-                          const rangeEnd = end - (2147483647 * (bufferObj.num - 1));
-
-                          // If part length exceed buffer current buffer length, get the next buffer
-                          if ((bufferObj.num * 2147483647) > rangeStart
-                          && (bufferObj.num * 2147483647) < end) {
-                            buffers[bufferObj.next].buffer = fs.readFileSync(bufferObj.next);
-
-                            const part1 = buffer.slice(start, 2147483647);
-                            const part2 = buffers[bufferObj.next].buffer
-                              .slice(0, rangeEnd - 2147483647);
-
-                            // Concat the two part and change the body param
-                            body = Buffer.concat([part1, part2]);
-
-                            console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                            console.log(`Part ${bufferObj.num} Byte end: ${2147483647}`);
-                            console.log(`Part ${buffers[bufferObj.next].num} Byte start: ${0}`);
-                            console.log(`Part ${buffers[bufferObj.next].num} Byte end: ${rangeEnd - 2147483647}`);
-
-                            console.log(`Total byte: ${end}`);
-
-                            // Move to next buffer object
-                            bufferObj = buffers[bufferObj.next];
-
-                            // Else proceed as normal in the same buffer
-                          } else {
-                            body = buffer.slice(start, rangeEnd);
-                            console.log(`Part ${bufferObj.num} Byte start: ${start}`);
-                            console.log(`Part ${bufferObj.num} Byte end: ${rangeEnd}`);
-
-                            console.log(`Total byte: ${end}`);
-                          }
-                        }
-
-                        const partParams = {
-                          Body: body,
-                          Bucket: property.aws.toBucketName,
-                          Key: `${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json`,
-                          PartNumber: String(partNum),
-                          UploadId: multipart.UploadId,
-                        };
-                        // Send a single part
-                        console.log('Uploading part: #', partParams.PartNumber, ', Range start:', rangeStart);
-                        partObj[partParams.PartNumber] = '';
-                        uploadPart(multipart, partParams);
-                      }
-                    });
-                  })
-                  .catch((err) => {
-                    throw err;
-                  });
-              });
-            });
-        }
-      }
-    }
+function getRecord() {
+  return new Promise((resolve) => {
+    s3.getObject({
+      Bucket: property.aws.toBucketName,
+      Key: 'prd_completedRecord.txt',
+    }, (err, data) => {
+      if (err) { throw new Error(err); } else resolve(data.Body.toString());
+    });
   });
 }
 
-listAllKeys();
+function parse(key) {
+  return new Promise((resolve) => {
+    getParams.Key = key;
+
+    // Get the file using key
+    s3.getObject(getParams, (getErr, getData) => {
+      if (getErr) throw new Error(getErr);
+      else {
+      // Uncompress the data returned
+        console.log(key);
+        const progress = new cliProgress.SingleBar({}, cliProgress.Presets.legacy);
+        const buffer = new Buffer.alloc(getData.ContentLength, getData.Body, 'base64');
+        zlib.unzip(buffer, (zipErr, zipData) => {
+          if (zipErr) throw new Error(zipErr);
+          else {
+            // Split each data into array when new line
+            let logData = zipData.toString().split('{"messageType"');
+
+            // Create variables for json
+            const objArr = ['awsAccountId', 'customerId', 'eventDescription', 'eventType', 'originId', 'requestId', 'sessionId', 'sessionType', 'beaconInfo'];
+
+            logData = logData.filter((el) => el !== '');
+            let { length } = logData;
+            progress.start(length);
+
+            // For every row of data
+            logData.forEach((logsItem) => {
+              const logs = `{"messageType"${logsItem}`;
+              let logObj = JSON.parse(logs);
+
+              if (logObj.logEvents.length > 1) {
+                length += logObj.logEvents.length - 1;
+                progress.setTotal(length);
+              }
+
+              logObj.logEvents.forEach((logItem) => {
+                const log = logItem;
+                const regex = /\u0000/g;
+                const matchArr = log.message.match(regex);
+                if (matchArr) {
+                  log.message = log.message.replace(/\u0000/, `(NULL*${matchArr.length})`);
+                  log.message = log.message.replace(regex, '');
+                }
+
+                const epochTime = new Date(0);
+                epochTime.setUTCMilliseconds(log.timestamp);
+                const stampYear = epochTime.getUTCFullYear();
+                let stampMonth = epochTime.getUTCMonth() + 1;
+                stampMonth = stampMonth < 10 ? `0${stampMonth}` : stampMonth;
+                let stampDay = epochTime.getUTCDate();
+                stampDay = stampDay < 10 ? `0${stampDay}` : stampDay;
+                let stampHour = epochTime.getUTCHours();
+                stampHour = stampHour < 10 ? `0${stampHour}` : stampHour;
+                let stampMinute = epochTime.getUTCMinutes();
+                stampMinute = stampMinute < 10 ? `0${stampMinute}` : stampMinute;
+                let stampSec = epochTime.getUTCSeconds();
+                stampSec = stampSec < 10 ? `0${stampSec}` : stampSec;
+                let stampMiliSec = epochTime.getUTCMilliseconds();
+                stampMiliSec = stampMiliSec < 100 ? `0${stampMiliSec}` : stampMiliSec;
+                stampMiliSec = stampMiliSec < 10 ? `0${stampMiliSec}` : stampMiliSec;
+                const time = `${stampYear}-${stampMonth}-${stampDay}T${stampHour}:${stampMinute}:${stampSec}.${stampMiliSec}Z`;
+
+                const { message } = log;
+                const jsonObj = JSON.parse(message);
+
+                objArr.forEach((ele) => {
+                  if (!jsonObj[ele]) {
+                    jsonObj[ele] = '';
+                  }
+                });
+
+                let beacon_info_headers_0_name = '';
+                let beacon_info_headers_0_value = '';
+                let beacon_info_headers_1_name = '';
+                let beacon_info_headers_1_value = '';
+                let city = '';
+                let country_iso = '';
+                let region = '';
+                if (jsonObj.beaconInfo && jsonObj.beaconInfo.headers) {
+                  jsonObj.beaconInfo.headers.forEach((header) => {
+                    if (header.name) {
+                      if (header.name === 'User-Agent') {
+                        beacon_info_headers_0_name = `"${header.name.trim().replace(/\"/g, "'")}"`;
+                        beacon_info_headers_0_value = `"${header.value.trim().replace(/\"/g, "'")}"`;
+                      } else if (header.name === 'X-Forwarded-For') {
+                        beacon_info_headers_1_name = `"${header.name.trim().replace(/\"/g, "'")}"`;
+                        beacon_info_headers_1_value = `"${header.value.trim().replace(/\"/g, "'")}"`;
+                        const ip = beacon_info_headers_1_value.replace(/\"/g, '');
+                        const geoInfo = geoip.lookup(ip);
+                        if (geoInfo) {
+                          city = geoInfo.city;
+                          country_iso = geoInfo.country;
+                          region = geoInfo.region;
+                        }
+                      }
+                    }
+                  });
+                }
+
+                // Create an object to be transform into JSON
+                logObj = {
+                  request_time: time,
+                  aws_account_id: jsonObj.awsAccountId,
+                  customer_id: jsonObj.customerId,
+                  event_description: jsonObj.eventDescription,
+                  event_timestamp: jsonObj.eventTimestamp,
+                  event_type: jsonObj.eventType,
+                  origin_id: jsonObj.originId,
+                  request_id: jsonObj.requestId,
+                  session_id: jsonObj.sessionId,
+                  session_type: jsonObj.sessionType,
+                  beacon_info_beacon_http_response_code: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconHttpResponseCode !== 'undefined') ? jsonObj.beaconInfo.beaconHttpResponseCode : ''),
+                  beacon_info_beacon_uri: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? jsonObj.beaconInfo.beaconUri : ''),
+                  beacon_info_headers_0_name,
+                  beacon_info_headers_0_value,
+                  beacon_info_headers_1_name,
+                  beacon_info_headers_1_value,
+                  beacon_info_tracking_event: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.trackingEvent !== 'undefined') ? jsonObj.beaconInfo.trackingEvent : ''),
+                  city,
+                  country_iso,
+                  region,
+                };
+
+                // Transform object into JSON string
+                const temp = JSON.stringify(logObj).replace(/\n|\r/g, '');
+
+                // Write the JSON string into the temporary JSON file
+                stream.write(`${temp}\n`);
+                progress.increment();
+              });
+            });
+            // When finish all data parsing for this file,
+            // return a resolve signal for promise
+            progress.stop();
+            resolve('done');
+          }
+        });
+      }
+    });
+  });
+}
+
+// Get a list of current compressed logs in the S3 bucket
+function listAllKeys() {
+  try {
+    s3.listObjectsV2(bucketParams, async (listErr, listData) => {
+      if (listErr) throw new Error(listErr);
+      else {
+        const contents = listData.Contents;
+        arr = arr.concat(contents);
+
+        if (listData.IsTruncated) {
+          bucketParams.ContinuationToken = listData.NextContinuationToken;
+          try {
+            listAllKeys();
+          } catch (error) {
+            throw new Error(error);
+          }
+        } else {
+        // Sort the logs by last modified date
+          console.log('Sorting the objects by dates...');
+          arr.sort((a, b) => ((b.LastModified > a.LastModified) ? 1
+            : ((a.LastModified > b.LastModified) ? -1 : 0)));
+
+          // Check if the lastest log is added
+          console.log('Checking if the latest log is added...');
+
+          // If it is beginning of the day, look at past day's last file
+          // to make sure we have complete data
+          if (hour === '00' && !lookBack) {
+            console.log('Beginning of the day: ');
+            let pastDay = day - 1;
+            let pastMonth = pastDay === 0 ? month - 1 : month;
+            pastMonth = +pastMonth;
+            const pastYear = pastMonth === 0 ? year - 1 : year;
+            pastMonth = pastMonth === 0 ? 12 : pastMonth;
+            pastMonth = pastMonth < 10 ? `0${pastMonth}` : pastMonth;
+            pastDay = pastDay === 0 ? lastDay : pastDay;
+            pastDay = pastDay < 10 ? `0${pastDay}` : pastDay;
+
+            // Update bucket params and call this function again
+            bucketParams.Prefix = `${property.aws.prefix}Firehouse/${pastYear}/${pastMonth}/${pastDay}/`;
+            try {
+              lookBack = true;
+              listAllKeys();
+            } catch (error) {
+              throw new Error(error);
+            }
+          } else {
+            lastModified = arr[0].LastModified;
+
+            try {
+            // Get the record from S3
+              completed = await getRecord();
+
+              // Temp variable for counting
+              let c = 0;
+
+              // If we have already run this file, stop the script
+              if (arr[0].LastModified.toISOString() === completed) {
+                console.log('Recent file does not seems to be present. Detail as follow:');
+                console.log(`The latest log is: ${arr[0].LastModified.toISOString()}`);
+                throw new Error('Current file already parsed');
+              } else {
+                // Look through all S3 item keys
+                for (let i = 0; i < arr.length; i += 1) {
+                  // If current file already been parsed, get the previous one
+                  // (remember all file has been sorted)
+                  if (arr[i].LastModified.toISOString() === completed) {
+                    c = i - 1;
+                    break;
+                  }
+                  c = i;
+                }
+                const currentGz = [];
+
+                console.log('Appending all recent file key to array for looping...');
+
+                for (let co = c; co >= 0; co -= 1) {
+                  currentGz.push(arr[co].Key);
+                }
+
+                console.log(currentGz);
+
+                const itemLastModified = new Date(arr[c].LastModified);
+                console.log(`Item last modified: ${itemLastModified.toISOString()}`);
+                console.log(`Processing files on this day: ${date.toISOString()}`);
+
+                arr = [];
+
+                // Create a promise array to hold all promises
+                for (let h = 0; h < currentGz.length; h += 1) {
+                  await parse(currentGz[h]);
+                }
+
+                // When all file has been called and all data has been parsed and
+                // Close the writing stream to file so all data is settled
+                stream
+                  .on('error', (err) => {
+                    console.log(err);
+                    throw new Error(err);
+                  })
+                  .end(() => {
+                    console.log('Uploading to s3');
+
+                    s3multipartUpload(fileName,
+                      property.aws.toBucketName, property.aws.jsonPutKeyFolder, (cb) => {
+                        console.log(cb);
+
+                        // Remove the temporary file
+                        try {
+                          fs.unlinkSync(filePath);
+                          console.log('File removed');
+                        } catch (fileErr) {
+                          throw new Error(fileErr);
+                        }
+
+                        // Run Redshift query
+                        console.log('Running Redshift query...');
+                        // const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' credentials \'aws_access_key_id=${property.aws.aws_access_key_id};aws_secret_access_key=${property.aws.aws_secret_access_key}\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
+                        const copyCmd = `COPY cwl_mediatailor_ad_decision_server_interactions from \'s3://${property.aws.toBucketName}/${property.aws.jsonPutKeyFolder}/mediaTailorData-${month}${day}${year}-${hour}${minute}.json\' iam_role \'arn:aws:iam::077497804067:role/RedshiftS3Role\' json \'auto\' timeformat \'auto\' REGION AS \'eu-central-1\';`;
+                        redshiftClient2.connect((connectErr) => {
+                          if (connectErr) throw new Error(connectErr);
+                          else {
+                            console.log('Connected to Redshift!');
+                            redshiftClient2.query(copyCmd, (queryErr, migrateData) => {
+                              if (queryErr) throw new Error(queryErr);
+                              else {
+                                console.log(migrateData);
+                                console.log('Migrated to Redshift');
+
+                                // log the latest file date in S3 to prevent duplicate run
+                                s3.putObject({
+                                  Bucket: property.aws.toBucketName,
+                                  Body: lastModified.toISOString(),
+                                  Key: 'prd_completedRecord.txt',
+                                }, (uploadErr, uploadData) => {
+                                  if (uploadErr) throw new Error(uploadErr);
+                                  else {
+                                    console.log('Record Saved!');
+                                    console.log(uploadData);
+
+                                    date = new Date();
+
+                                    date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
+                                      date.getUTCDate(), date.getUTCHours() - 1));
+
+                                    let aggregatedCompleted = '';
+
+                                    s3.getObject({
+                                      Bucket: property.aws.toBucketName,
+                                      Key: 'prd_aggregatedCompletedRecord.txt',
+                                    }, (err, data) => {
+                                      if (err) throw err;
+                                      else aggregatedCompleted = data.Body.toString();
+
+
+                                      let lastCompleteDate = new Date(Date.parse(aggregatedCompleted));
+
+                                      if (minute < 30 || date < lastCompleteDate) {
+                                        redshiftClient2.close();
+                                      } else {
+                                        if (date > lastCompleteDate) {
+                                          date = new Date(Date.UTC(lastCompleteDate.getUTCFullYear(), lastCompleteDate.getUTCMonth(),
+                                            lastCompleteDate.getUTCDate(), lastCompleteDate.getUTCHours()));
+                                        }
+
+                                        let month1 = date.getUTCMonth() + 1;
+                                        const year1 = date.getUTCFullYear();
+                                        let hour1 = date.getUTCHours();
+                                        let day1 = date.getUTCDate();
+                                        month1 = month1 < 10 ? `0${month1}` : month1;
+                                        day1 = day1 < 10 ? `0${day1}` : day1;
+                                        hour1 = hour1 < 10 ? `0${hour1}` : hour1;
+
+                                        lastCompleteDate = new Date(Date.UTC(year, month - 1, day, hour));
+
+                                        const timeRange = `${year}-${month}-${day} ${hour}:00:00`;
+                                        const timeRange1 = `${year1}-${month1}-${day1} ${hour1}:00:00`;
+                                        const timeRangeDay = `${year1}-${month1}-${day1} 00:00:00`;
+                                        const timeRangeMonth = `${year1}-${month1}-01 00:00:00`;
+
+                                        let rawTimeRangeDate = new Date();
+                                        rawTimeRangeDate = new Date(Date.UTC(rawTimeRangeDate.getUTCFullYear(), rawTimeRangeDate.getUTCMonth() - 1));
+                                        let rawTimeRangeMonth = rawTimeRangeDate.getUTCMonth() + 1;
+                                        const rawTimeRangeYear = rawTimeRangeDate.getUTCFullYear();
+                                        rawTimeRangeMonth = rawTimeRangeMonth < 10 ? `0${rawTimeRangeMonth}` : rawTimeRangeMonth;
+
+                                        const timeRangeMonth1 = `${rawTimeRangeYear}-${rawTimeRangeMonth}-01 00:00:00`;
+
+                                        const aggregatedCmd = {
+                                          insert: {
+                                            cwl_mediatailor_impression_beacon_cmd: `INSERT INTO cwl_mediatailor_impression_beacon ( SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, beacon_info_tracking_event, CASE WHEN CONCAT(CONCAT(REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 2)), \'.\') ,REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 1)))=\'.\' THEN NULL ELSE CONCAT(CONCAT(REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 2)), \'.\') ,REVERSE(SPLIT_PART(REVERSE(SPLIT_PART(SPLIT_PART(beacon_info_beacon_uri, \'/\', 3), \'?\', 1)), \'.\', 1))) END as uri_source, COUNT(beacon_info_tracking_event) as beacon_tracking_event_count, origin_id, event_type, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE beacon_info_tracking_event=\'impression\' and request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, uri_source, event_type, beacon_info_tracking_event, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_minute_unique_users_sessions_cmd: `INSERT INTO cwl_mediatailor_minute_unique_users_sessions (SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, COUNT( DISTINCT session_id) as unique_session, COUNT( DISTINCT beacon_info_headers_1_value) as unique_user, origin_id, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_hourly_unique_users_sessions_cmd: `INSERT INTO cwl_mediatailor_hourly_unique_users_sessions (SELECT DATE_TRUNC(\'hours\', request_time) as timestamps, COUNT( DISTINCT session_id) as unique_session, COUNT( DISTINCT beacon_info_headers_1_value) as unique_user, origin_id, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_daily_unique_users_sessions_cmd: `INSERT INTO cwl_mediatailor_daily_unique_users_sessions ( SELECT DATE_TRUNC(\'days\', request_time) as timestamps, COUNT( DISTINCT session_id) as unique_session, COUNT( DISTINCT beacon_info_headers_1_value) as unique_user, origin_id, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRangeDay}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_monthly_unique_users_sessions_cmd: `INSERT INTO cwl_mediatailor_monthly_unique_users_sessions (SELECT DATE_TRUNC(\'months\', request_time) as timestamps, COUNT( DISTINCT session_id) as unique_session, COUNT( DISTINCT beacon_info_headers_1_value) as unique_user, origin_id, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRangeMonth}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_ad_event_type_cmd: `INSERT INTO cwl_mediatailor_ad_event_type (SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, origin_id, event_type, COUNT(event_type) as request_count, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, event_type, city, country_iso, region ORDER BY timestamps asc);`,
+                                            cwl_mediatailor_error_cmd: `INSERT INTO cwl_mediatailor_error (SELECT DATE_TRUNC(\'minutes\', request_time) as timestamps, count(request_id) as request_count, origin_id, event_type, city, country_iso, region FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time>=\'${timeRange1}\' and request_time<\'${timeRange}\' GROUP BY timestamps, origin_id, event_type, city, country_iso, region ORDER BY timestamps asc);`,
+                                          },
+                                          delete: {
+                                            cwl_mediatailor_daily_unique_users_sessions_delete_cmd: `DELETE FROM cwl_mediatailor_daily_unique_users_sessions WHERE timestamps>=\'${timeRangeDay}\' and timestamps<\'${timeRange}\';`,
+                                            cwl_mediatailor_monthly_unique_users_sessions_delete_cmd: `DELETE FROM cwl_mediatailor_monthly_unique_users_sessions WHERE timestamps>=\'${timeRangeMonth}\' and timestamps<\'${timeRange}\';`,
+                                            cwl_mediatailor_ad_decision_server_interactions_delete_cmd: `DELETE FROM cwl_mediatailor_ad_decision_server_interactions WHERE request_time<\'${timeRangeMonth1}\';`,
+                                          },
+                                        };
+
+                                        const insertPromises = [];
+                                        const deletePromises = [];
+
+                                        Object.keys(aggregatedCmd.delete).forEach((cmd) => {
+                                          deletePromises.push(new Promise((res) => {
+                                            redshiftClient2.query(aggregatedCmd.delete[cmd], (qErr, deleteData) => {
+                                              if (qErr) throw new Error(qErr);
+                                              else {
+                                                console.log(deleteData);
+                                                res(`Deleted: ${cmd}`);
+                                              }
+                                            });
+                                          }));
+                                        });
+
+                                        Object.keys(aggregatedCmd.insert).forEach((cmd) => {
+                                          insertPromises.push(new Promise((res) => {
+                                            redshiftClient2.query(aggregatedCmd.insert[cmd], (qErr, insertData) => {
+                                              if (qErr) throw new Error(qErr);
+                                              else {
+                                                console.log(insertData);
+                                                res(`Inserted: ${cmd}`);
+                                              }
+                                            });
+                                          }));
+                                        });
+
+                                        Promise.all(deletePromises)
+                                          .then(() => {
+                                            Promise.all(insertPromises)
+                                              .then(() => {
+                                                console.log('All insert completed');
+
+                                                s3.putObject({
+                                                  Bucket: property.aws.toBucketName,
+                                                  Body: lastCompleteDate.toISOString(),
+                                                  Key: 'prd_aggregatedCompletedRecord.txt',
+                                                }, (Err, Data) => {
+                                                  if (Err) throw new Error(Err);
+                                                  else {
+                                                    console.log('Aggregated Record Saved!');
+                                                    console.log(Data);
+                                                  }
+                                                });
+
+                                                redshiftClient2.close();
+                                              });
+                                          });
+                                      }
+                                    });
+                                  }
+                                });
+                              }
+                            });
+                          }
+                        });
+                      });
+                  });
+              }
+            } catch (error) {
+              throw new Error(error);
+            }
+          }
+        }
+      }
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+}
+
+try {
+  listAllKeys();
+} catch (error) {
+  throw new Error(error);
+}
