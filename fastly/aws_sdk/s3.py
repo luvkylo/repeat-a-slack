@@ -31,7 +31,7 @@ class S3:
         except botocore.exceptions.ClientError as error:
             raise error
 
-        if response["Contents"] or len(response["Contents"] > 0):
+        if ("Contents" in response.keys()):
             for keyObj in response["Contents"]:
                 if '.log' in keyObj["Key"]:
                     timestamp = re.search(
