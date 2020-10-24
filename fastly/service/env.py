@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 class Env:
-
+    env_path = ''
     if os.path.exists(os.path.join(os.path.dirname(os.getcwd()), '.env')):
         env_path = os.path.join(os.path.dirname(os.getcwd()), '.env')
         load_dotenv(dotenv_path=env_path)
@@ -21,3 +21,4 @@ class Env:
             'S3_FASTLY_FROM_BUCKET_NAME')
         self.s3_fastly_logs_from_prefix = os.getenv(
             'S3_FASTLY_LOGS_FROM_PREFIX')
+        print(self.s3_fastly_logs_from_prefix)

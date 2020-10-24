@@ -31,14 +31,15 @@ class S3:
         except botocore.exceptions.ClientError as error:
             raise error
 
-        for keyObj in response["Contents"]:
-            if '.log' in keyObj["Key"]:
-                timestamp = re.search(
-                    r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
-                log_time = time.strptime(
-                    timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
-                if time.mktime(log_time) < time.mktime(gmt):
-                    self.keylist.append(keyObj["Key"])
+        if response["Contents"] or len(response["Contents"] > 0):
+            for keyObj in response["Contents"]:
+                if '.log' in keyObj["Key"]:
+                    timestamp = re.search(
+                        r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
+                    log_time = time.strptime(
+                        timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
+                    if time.mktime(log_time) < time.mktime(gmt):
+                        self.keylist.append(keyObj["Key"])
 
         if response["IsTruncated"] == True:
             self.getlist(
