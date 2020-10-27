@@ -144,6 +144,7 @@ class S3:
                 # for each log in the file, append it to a jsonObj (dict)
                 for lines in body.iter_lines():
                     for line in lines.decode().splitlines():
+                        line = line.replace("\\", "\\\\")
                         obj = json.loads(line)
                         for objKey in obj.keys():
                             if objKey == 'geo':
