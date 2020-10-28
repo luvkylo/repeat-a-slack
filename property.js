@@ -9,6 +9,7 @@ const property = {
     tvaugPrefix: process.env.S3_TVAUG_BUCKET_PREFIX,
     tvaugJsonPutKeyFolder: process.env.S3_TVAUG_JSON_PUT_KEY_FOLDER,
     tvaugWeeklySnapshotFolder: process.env.S3_TVAUG_WEEKLY_SNAPSHOT_FOLDER,
+    fillRateFileLog: process.env.FILL_RATE_FILE_LOG,
   },
   redshift: {
     user: process.env.REDSHIFT_USER,
