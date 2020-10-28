@@ -155,10 +155,7 @@ async function main() {
           num_ads_sum = '';
         row.forEach((ele) => {
           if (ele.field === 'bin(1m)') {
-            const [d, time] = ele.value.split(' ');
-            // this is dilebrate because eslint has the array deconstructing warning
-            day = time;
-            day = d.split('-').join('');
+            day = ele.value;
           } else if (ele.field === 'originId') {
             origin_id = ele.value;
           } else if (ele.field === 'SUM(avail.filledDuration)') {
