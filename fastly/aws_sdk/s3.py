@@ -145,25 +145,30 @@ class S3:
                 for lines in body.iter_lines():
                     for line in lines.decode().splitlines():
                         line = line.replace("\\", "\\\\")
-                        obj = json.loads(line)
-                        for objKey in obj.keys():
-                            if objKey == 'geo':
-                                for loc in obj[objKey].keys():
-                                    if loc in jsonObj:
-                                        jsonObj[loc].append(obj[objKey][loc])
-                                    else:
-                                        jsonObj[loc] = [obj[objKey][loc]]
-                            else:
-                                # **
-                                if objKey == 'url':
-                                    if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
-                                        channel2.append(line)
-                                    if re.search(r"\/(\d+)\/", obj[objKey]) == None or (re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == ''):
-                                        emptyChannel.append(line)
-                                if objKey in jsonObj:
-                                    jsonObj[objKey].append(obj[objKey])
+                        line = line.replace('\\\\"', '\\"')
+                        try:
+                            obj = json.loads(line)
+                            for objKey in obj.keys():
+                                if objKey == 'geo':
+                                    for loc in obj[objKey].keys():
+                                        if loc in jsonObj:
+                                            jsonObj[loc].append(
+                                                obj[objKey][loc])
+                                        else:
+                                            jsonObj[loc] = [obj[objKey][loc]]
                                 else:
-                                    jsonObj[objKey] = [obj[objKey]]
+                                    # **
+                                    if objKey == 'url':
+                                        if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
+                                            channel2.append(line)
+                                        if re.search(r"\/(\d+)\/", obj[objKey]) == None or (re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == ''):
+                                            emptyChannel.append(line)
+                                    if objKey in jsonObj:
+                                        jsonObj[objKey].append(obj[objKey])
+                                    else:
+                                        jsonObj[objKey] = [obj[objKey]]
+                        except:
+                            print(line)
 
             # **
             if len(channel2) > 0:
