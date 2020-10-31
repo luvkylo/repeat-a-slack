@@ -61,7 +61,7 @@ class ETLPandasService:
             self.df['channel_id'] = self.df['url'].apply(
                 lambda x: self.match(r"\/(\d+)\/", x))
             self.df['distributor'] = self.df['url'].apply(
-                lambda x: (self.match(r"\/(dist|mt)\/(.+)\/\d+", x, group=1) + '-' + self.match(r"\/(dist|mt)\/(.+)\/\d+", x, group=2).title().replace("-", "_")))
+                lambda x: (self.match(r"\/(dist|mt)\/(\d|\w|-)+", x, group=1) + '-' + self.match(r"\/(dist|mt)\/(\d|\w|-)+", x, group=2).title().replace("-", "_")))
             self.df['minutes_watched'] = self.df['url'].apply(
                 lambda x: self.regex_substring_count(r"\.ts", x)).astype('int')*6/60
             self.df['channel_start'] = self.df['url'].apply(
