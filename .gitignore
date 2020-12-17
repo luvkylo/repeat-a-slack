@@ -7,6 +7,5 @@ property_local.js
 manifest.json
 schema.sql
 cw_origin_usage_metric_to_redshift.js
-cw_ads_billed_metric_to_redshift.js
 tvaug_metadata_manual_match_automation.js
 execute.sh
