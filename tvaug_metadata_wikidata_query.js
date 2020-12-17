@@ -242,34 +242,28 @@ function query(region) {
           // append the result to the query string
           strArr[x] = `(${strArr[x]})`;
           if (res) {
-            regions[region].insertKPICmd += `${strArr[x]}`;
-            if (x !== strArr.length - 1 || Buffer.byteLength(regions[region].insertKPICmd, 'utf8') < 15728640) {
-              regions[region].insertKPICmd += ',';
-            } else {
-              regions[region].insertKPICmd += ';';
-              const md = regions[region].insertKPICmd.replace(/(\r\n|\r|\n)/g, '').replace(/\\\\/g, '\\');
-
-              // run the redshift query to insert the top 1000 data
-              const strNum = strArr.length;
-              redshiftClient2.query(md, (e, d) => {
-                if (e) {
-                  console.log(e);
-                  bar1.stop();
-                  throw new Error(e);
-                } else {
-                  regions[region].insertKPICmd = 'INSERT INTO tv_aug_kpi_results (start_time, end_time, query_date, type, crid, adult, title_name, description, episode_number, season_number, series_name, region, is_on_demand, hits, api_request_number, video_results, video_response_code) VALUES ';
-                  if (x === strNum - 1) {
-                    console.log(`\nAll data written into table for region: ${region}`);
-                    reso({ bar: bar1, data: d });
-                  }
-                  console.log(`\nPartial data written into table for region: ${region}`);
-                }
-              });
-            }
+            if (x !== strArr.length - 1) { regions[region].insertKPICmd += `${strArr[x]},`; } else { regions[region].insertKPICmd += `${strArr[x]};`; }
           }
         }
+
+        if (Buffer.byteLength(regions[region].insertKPICmd, 'utf8') >= 16777216) {
+          rej(new Error({ bar: bar1, err: 'Too Big!' }));
+        }
+        const md = regions[region].insertKPICmd.replace(/(\r\n|\r|\n)/g, '').replace(/\\\\/g, '\\');
         n += 1;
         console.log(`\n${n}`);
+
+        // run the redshift query to insert the top 1000 data
+        redshiftClient2.query(md, (e, d) => {
+          if (e) {
+            console.log(e);
+            bar1.stop();
+            throw new Error(e);
+          } else {
+            console.log(`\nAll data written into table for region: ${region}`);
+            reso({ bar: bar1, data: d });
+          }
+        });
       }
     });
   });

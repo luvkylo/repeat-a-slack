@@ -122,51 +122,6 @@ class S3:
                 )
             print("All Files are removed")
 
-    def moveObjects(self, keyList='', bucket='', destBucket='', destFolder=''):
-        if (bucket == '' or destBucket == ''):
-            raise KeyError('Missing bucket name!')
-        elif (destFolder == ''):
-            raise KeyError('Missing folder name!')
-        elif (keyList == ''):
-            raise KeyError('Missing list of S3 Keys!')
-        else:
-            for key in keyList:
-                self.moveObject(
-                    bucket=bucket,
-                    destBucket=destBucket,
-                    destFolder=destFolder,
-                    key=key
-                )
-            print("All Files are removed")
-
-    def moveObject(self, bucket='', destBucket='', destFolder='', key=''):
-        if (bucket == '' or destBucket == ''):
-            raise KeyError('Missing bucket name!')
-        elif (destFolder == ''):
-            raise KeyError('Missing folder name!')
-        elif (key == ''):
-            raise KeyError('Missing key value!')
-        else:
-            try:
-                copy_source = {
-                    'Bucket': bucket,
-                    'Key': key
-                }
-                destKey = destFolder + '/' + key.split('/')[-1]
-                self.s3.meta.client.copy(copy_source, destBucket, destKey)
-                self.deleteObject(
-                    bucket=bucket,
-                    key=key
-                )
-            except self.s3.meta.client.exceptions.NoSuchKey as err:
-                print("Failed to delete object")
-                print("Key:", key, "\ndoes not exist in the bucket:", bucket)
-                raise ValueError(err)
-            except self.s3.meta.client.exceptions.NoSuchBucket as err:
-                print("Failed to delete object")
-                print("Bucket does not exist:", bucket)
-                raise ValueError(err)
-
     def getDataframeObject(self, keyList='', bucket='', gmt=''):
         if (bucket == ''):
             raise KeyError('Missing bucket name!')
@@ -177,7 +132,6 @@ class S3:
 
             # capture channel 2 and empty channel id for research purpose (**)
             channel2 = []
-            channel59 = []
             emptyChannel = []
 
             # for each log file in s3, download it
@@ -204,13 +158,11 @@ class S3:
                                             jsonObj[loc] = [obj[objKey][loc]]
                                 else:
                                     # **
-                                    # if objKey == 'url':
-                                    # if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
-                                    #     channel2.append(line)
-                                    # if re.search(r"\/(\d+)\/", obj[objKey]) == None or (re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == ''):
-                                    #     emptyChannel.append(line)
-                                    # if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '59':
-                                    #     channel59.append(line)
+                                    if objKey == 'url':
+                                        if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
+                                            channel2.append(line)
+                                        if re.search(r"\/(\d+)\/", obj[objKey]) == None or (re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == ''):
+                                            emptyChannel.append(line)
                                     if objKey in jsonObj:
                                         jsonObj[objKey].append(obj[objKey])
                                     else:
@@ -219,13 +171,10 @@ class S3:
                             print(line)
 
             # **
-            # if len(channel2) > 0:
-            #     self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
-            #                       time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel2))
-            # if len(emptyChannel) > 0:
-            #     self.putStrObject('prd-freq-report-data-fr', 'fastly_log/emptyChannel/' +
-            #                       time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(emptyChannel))
-            # if len(channel59) > 0:
-            #     self.putStrObject('prd-freq-report-data-fr', 'fastly_log/59/' +
-            #                       time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel59))
+            if len(channel2) > 0:
+                self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
+                                  time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel2))
+            if len(emptyChannel) > 0:
+                self.putStrObject('prd-freq-report-data-fr', 'fastly_log/emptyChannel/' +
+                                  time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(emptyChannel))
             return jsonObj
