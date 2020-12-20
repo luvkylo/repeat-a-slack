@@ -206,7 +206,7 @@ async function main() {
 
             insertKPICmd += tempArr;
 
-            if (Buffer.byteLength(insertKPICmd, 'utf-8') < 15728640 || x < result.length - 1) {
+            if (Buffer.byteLength(insertKPICmd, 'utf-8') < 15728640 && x < result.length - 1) {
               insertKPICmd += ',';
             } else {
               insertKPICmd += ';';
