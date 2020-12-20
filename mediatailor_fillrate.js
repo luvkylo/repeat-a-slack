@@ -5,12 +5,6 @@ const Redshift = require('node-redshift');
 // const property = require('./property_local');
 const property = require('./property');
 
-AWS.config.update({
-  accessKeyId: 'ASIA42QTZRASNFRGONWL',
-  secretAccessKey: '8SflVuieocrI6h7Mwzr1BjojfkfVQZZWQGRFXBvV',
-  sessionToken: 'FwoGZXIvYXdzENf//////////wEaDIYfFmeEo8i9gg6W5yLLAdY0GQ3NSN8yKreN9NbwsCdF9FvIAGGT8MGPlNLnPoFMW1XH7PrTiWzIMN3W4pt3K6NsbgCKFXD9bGkmg7tH9+4xRfdYqeJ0piO/H7M1KH8jWZ73ZFSqLasfxmRSWkQglnjUJRjsOGkaBV2TGFuQTMhNCDVzLMQukgSfkKbTJNrKAcyCfmHEoQayDo9TAzmGMu3qt17o8iiiOIM8b2jfWezU3iuBF1mxtFWPoUC7HVH8tyIRhLAG+Jd6KM0a1eWrJ+rLq5NcXcR4Dg3MKInE+/4FMi1xDdxfkfDRly37TDxQY7KikZoFu9jaYVNgY+PA4iBip0onfU1cCf9ugEKxEPs=',
-});
-
 AWS.config.update({ region: 'us-west-2' });
 const s3 = new AWS.S3();
 
