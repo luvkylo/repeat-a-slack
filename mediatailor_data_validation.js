@@ -121,7 +121,7 @@ function cloudwatch() {
 
     const queryParams = {
       startTime: startDate,
-      queryString: 'stats count(awsAccountId) by bin(1h)',
+      queryString: 'stats count(requestId) by bin(1h)',
       endTime: endDate,
       limit: 10000,
       logGroupName: 'MediaTailor/AdDecisionServerInteractions',

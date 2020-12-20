@@ -254,7 +254,7 @@ function query(region) {
           strArr[x] = `(${strArr[x]})`;
           if (res) {
             regions[region].insertKPICmd += `${strArr[x]}`;
-            if (x !== strArr.length - 1 || Buffer.byteLength(regions[region].insertKPICmd, 'utf8') < 15728640) {
+            if (x !== strArr.length - 1 && Buffer.byteLength(regions[region].insertKPICmd, 'utf8') < 15728640) {
               regions[region].insertKPICmd += ',';
             } else {
               regions[region].insertKPICmd += ';';
