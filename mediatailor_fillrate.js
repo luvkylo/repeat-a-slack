@@ -217,8 +217,8 @@ async function main() {
                 else {
                   console.log(queryData);
                   console.log('Done!');
-                  insertKPICmd = '';
-                  if (x === result.length - 1) {
+                  insertKPICmd = 'INSERT INTO cwl_mediatailor_fillrate (query_date, origin_id, filled_duration_sum, origin_avail_duration_sum, num_ads_sum) VALUES ';
+                  if (x === result.length) {
                     redshiftClient2.close();
                     s3.putObject({
                       Bucket: property.aws.toBucketName,
