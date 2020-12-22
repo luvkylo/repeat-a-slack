@@ -1,5 +1,6 @@
 import json
 import time
+import sys
 
 from service import env
 from service import pandas
@@ -31,7 +32,7 @@ def main():
     print("Number of Files:", len(keyList))
     if len(keyList) == 0:
         print("No unprocessed log files detected")
-        return
+        sys.exit(-1)
     print("Last file process:", keyList[-1])
     print("Got All File Keys...")
     print("Downloading all Files now")
@@ -67,16 +68,26 @@ def main():
     # set query string
     args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
                          for x in tuple(map(tuple, np_data)))
-    redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count) VALUES " + args_str.decode("utf-8"))
+
+    args_str = args_str.decode("utf-8")
+    while len(args_str) > 15000000:
+        index = args_str.find(")", 15000000, 16000000)
+        temp_str = args_str[0: index + 1]
+        args_str = args_str[index + 2:]
+        redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count) VALUES " + temp_str)
+    if len(args_str) > 0:
+        redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count) VALUES " + args_str)
 
     redshift.closeEverything()
 
     print("************************************************************")
     print("Removing processed log files...")
     # remove all processed log files
-    S3.deleteObjects(
+    S3.moveObjects(
         keyList=keyList,
-        bucket=env_var.s3_fastly_from_bucket_name
+        bucket=env_var.s3_fastly_from_bucket_name,
+        destBucket=env_var.s3_to_bucket_name,
+        destFolder=env_var.s3_fastly_logs_to_prefix
     )
 
     print("************************************************************")
