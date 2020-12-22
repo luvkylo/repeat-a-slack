@@ -179,53 +179,63 @@ async function main() {
     console.log(result);
 
     if (result.length > 0) {
-      // for each row in the result, extract the data
-      result.forEach((row) => {
-        let day = ''; let origin_id = ''; let filled_duration_sum = ''; let origin_avail_duration_sum = ''; let
-          num_ads_sum = '';
-        row.forEach((ele) => {
-          if (ele.field === 'bin(1m)') {
-            day = ele.value;
-          } else if (ele.field === 'originId') {
-            origin_id = ele.value;
-          } else if (ele.field === 'SUM(avail.filledDuration)') {
-            filled_duration_sum = ele.value;
-          } else if (ele.field === 'SUM(avail.originAvailDuration)') {
-            origin_avail_duration_sum = ele.value;
-          } else if (ele.field === 'SUM(avail.numAds)') {
-            num_ads_sum = ele.value;
-          }
-        });
-        // append it into the redshift query string
-        const tempArr = `('${day}','${origin_id}',${filled_duration_sum},${origin_avail_duration_sum},${num_ads_sum})`;
-        if (x < result.length - 1) { insertKPICmd += `${tempArr},`; } else { insertKPICmd += `${tempArr};`; }
-        x += 1;
-      });
-
       // after parsing through each row, connect to redshift to run the query
       redshiftClient2.connect((connectErr) => {
         if (connectErr) throw connectErr;
         else {
           console.log('Connected to Redshift!');
-          // running the query
-          redshiftClient2.query(insertKPICmd, (queryErr, queryData) => {
-            if (queryErr) throw queryErr;
-            else {
-              console.log(queryData);
-              console.log('Done!');
-              redshiftClient2.close();
-              s3.putObject({
-                Bucket: property.aws.toBucketName,
-                Body: completed.toISOString(),
-                Key: property.aws.fillRateFileLog,
-              }, (Err, Data) => {
-                if (Err) throw new Error(Err);
+          // for each row in the result, extract the data
+          result.forEach((row) => {
+            let day = ''; let origin_id = ''; let filled_duration_sum = ''; let origin_avail_duration_sum = ''; let
+              num_ads_sum = '';
+            row.forEach((ele) => {
+              if (ele.field === 'bin(1m)') {
+                day = ele.value;
+              } else if (ele.field === 'originId') {
+                origin_id = ele.value;
+              } else if (ele.field === 'SUM(avail.filledDuration)') {
+                filled_duration_sum = ele.value;
+              } else if (ele.field === 'SUM(avail.originAvailDuration)') {
+                origin_avail_duration_sum = ele.value;
+              } else if (ele.field === 'SUM(avail.numAds)') {
+                num_ads_sum = ele.value;
+              }
+            });
+            // append it into the redshift query string
+            const tempArr = `('${day}','${origin_id}',${filled_duration_sum},${origin_avail_duration_sum},${num_ads_sum})`;
+
+            insertKPICmd += tempArr;
+
+            if (Buffer.byteLength(insertKPICmd, 'utf-8') < 15728640 && x < result.length - 1) {
+              insertKPICmd += ',';
+            } else {
+              insertKPICmd += ';';
+
+              // running the query
+              redshiftClient2.query(insertKPICmd, (queryErr, queryData) => {
+                if (queryErr) throw queryErr;
                 else {
-                  console.log('Record Saved!');
-                  console.log(Data);
+                  console.log(queryData);
+                  console.log('Done!');
+                  insertKPICmd = 'INSERT INTO cwl_mediatailor_fillrate (query_date, origin_id, filled_duration_sum, origin_avail_duration_sum, num_ads_sum) VALUES ';
+                  if (x === result.length) {
+                    redshiftClient2.close();
+                    s3.putObject({
+                      Bucket: property.aws.toBucketName,
+                      Body: completed.toISOString(),
+                      Key: property.aws.fillRateFileLog,
+                    }, (Err, Data) => {
+                      if (Err) throw new Error(Err);
+                      else {
+                        console.log('Record Saved!');
+                        console.log(Data);
+                      }
+                    });
+                  }
                 }
               });
             }
+            x += 1;
           });
         }
       });
