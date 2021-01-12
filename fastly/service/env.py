@@ -17,6 +17,8 @@ class Env:
         self.redshift_pw = os.getenv('REDSHIFT_PASSWORD')
         self.redshift_host = os.getenv('REDSHIFT_HOST')
         self.redshift_port = os.getenv('REDSHIFT_PORT')
+        self.redshift_host1 = os.getenv('REDSHIFT_HOST1')
+        self.redshift_pw1 = os.getenv('REDSHIFT_PASSWORD1')
         self.s3_fastly_from_bucket_name = os.getenv(
             'S3_FASTLY_FROM_BUCKET_NAME')
         self.s3_fastly_logs_from_prefix = os.getenv(
