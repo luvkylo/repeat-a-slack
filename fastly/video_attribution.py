@@ -8,7 +8,7 @@ from datetime import datetime
 from service import env
 
 from db import sql
-from db import queries
+from db import query
 
 
 def main():
@@ -25,7 +25,7 @@ def main():
     newCompleted = time.strftime("%Y-%m-%d %H:00:00", start)
 
     env_var = env.Env()
-    queries = queries.Queries()
+    queries = query.Queries()
 
     print("Connecting to Redshift...")
     # connect to Redshift
@@ -89,7 +89,7 @@ def main():
             print("Query one hour later: " + oneHourLater)
 
             redshift1.execute(
-                query.fastlyLogWithVideoAndScheduleQuery(
+                queries.fastlyLogWithVideoAndScheduleQuery(
                     completed=completed, newCompleted=newCompleted, oneHourPrior=oneHourPrior, oneHourLater=oneHourLater)
             )
 
@@ -126,14 +126,14 @@ def main():
             print("No new query")
             redshift.closeEverything()
             print("Connection closed")
-            sys.exit(-1)
+            raise KeyError("No new query")
     except:
         redshift.execute(queries.errorLog(
-            hashed_id=hashed_id, error=sys.exc_info()[0]))
+            hashed_id=hashed_id, error=str(sys.exc_info()[1])))
 
         redshift.closeEverything()
 
-        sys.exit(-1)
+        raise sys.exc_info()[0]
 
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@ class Queries:
         elif (len(hashed_id) != 64):
             raise KeyError(
                 'hashed_id is not 64 characters long, consider passing wrong param')
-        elif (self.regexCheck(r'\w{4}-\w{2}-\w{2}T\w{2}:\w{2}:\w{2}Z', startStr) is not None):
+        elif (self.regexCheck(r'\w{4}-\w{2}-\w{2}T\w{2}:\w{2}:\w{2}Z', startStr) is None):
             raise KeyError(
                 'startStr does not match timestamp pattern, consider passing wrong param')
         else:
@@ -48,7 +48,7 @@ class Queries:
         elif (len(hashed_id) != 64):
             raise KeyError(
                 'hashed_id is not 64 characters long, consider passing wrong param')
-        elif (None not in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}T\w{2}:\w{2}:\w{2}Z', [endStr, completedStr])):
+        elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}T\w{2}:\w{2}:\w{2}Z', [endStr, completedStr])):
             raise KeyError(
                 'endStr or completedStr does not match timestamp pattern, consider passing wrong param')
         else:
@@ -69,14 +69,14 @@ class Queries:
         else:
             return """
                 UPDATE reporting_cron_job_logs
-                SET status='ERROR' and error_note='error'
+                SET status='ERROR', error_note='{error}'
                 WHERE job_name='fastly_log_with_video_and_schedule_metadata' AND hashed_id='{hashed_id}'
-            """.format(hashed_id=hashed_id, error=error)
+            """.format(hashed_id=hashed_id, error=error.replace("'", "\\'"))
 
     def fastlyLogWithVideoAndScheduleQuery(self, completed='', newCompleted='', oneHourPrior='', oneHourLater=''):
         if (completed == '' or newCompleted == '' or oneHourPrior == '' or oneHourLater == ''):
             raise KeyError('Missing one of the param!!')
-        elif (None not in self.groupRegexMatch(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, oneHourPrior, oneHourLater])):
+        elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, oneHourPrior, oneHourLater])):
             raise KeyError(
                 'One of the param does not match the correct timestamp pattern!!')
         else:
