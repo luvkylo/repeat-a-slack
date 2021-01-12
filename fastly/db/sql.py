@@ -18,6 +18,9 @@ class Redshift:
                 "Redshift Failed to connect, please check if your vpn is on and is set to correct region")
             raise ConnectionError(err)
 
+    def returnResult(self):
+        return self.cursor.fetchall()
+
     def execute(self, argStr):
         print("Executing query...")
         try:
@@ -25,18 +28,23 @@ class Redshift:
             print("Query executed")
         except e.DatabaseError as err:
             print("Database Error!!!!")
+            print(err)
             raise err
         except e.DataError as err:
             print("Data Error, possible invalid query string")
+            print(err)
             raise err
         except e.ProgrammingError as err:
             print("Syntax Error, possible invalid query string")
+            print(err)
             raise err
         except e.OperationalError as err:
             print("Operational Error!!!")
+            print(err)
             raise err
         except e.InternalError as err:
             print("Internal Error!!!")
+            print(err)
             raise err
 
     def closeEverything(self):
@@ -47,12 +55,15 @@ class Redshift:
             self.connection.close()
         except e.DatabaseError as err:
             print("Database Error!!!!")
+            print(err)
             raise err
         except e.OperationalError as err:
             print("Operational Error!!!")
+            print(err)
             raise err
         except e.InternalError as err:
             print("Internal Error!!!")
+            print(err)
             raise err
 
         print("Everything is closed")

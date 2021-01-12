@@ -53,10 +53,12 @@ function statusFunc(queryId) {
           // if status is running, run the function again
           if (arr.length > 0) {
             try {
-              const status = await statusFunc(queryId).catch((e) => {
-                throw new Error(e);
-              });
-              resolve(status);
+              setTimeout(async () => {
+                const status = await statusFunc(queryId).catch((e) => {
+                  throw new Error(e);
+                });
+                resolve(status);
+              }, 5000);
             } catch (e) {
               console.log(e);
               throw new Error(e);
