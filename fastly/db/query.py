@@ -73,10 +73,10 @@ class Queries:
                 WHERE job_name='fastly_log_with_video_and_schedule_metadata' AND hashed_id='{hashed_id}'
             """.format(hashed_id=hashed_id, error=error.replace("'", "\\'"))
 
-    def fastlyLogWithVideoAndScheduleQuery(self, completed='', newCompleted='', oneHourPrior='', oneHourLater=''):
-        if (completed == '' or newCompleted == '' or oneHourPrior == '' or oneHourLater == ''):
+    def fastlyLogWithVideoAndScheduleQuery(self, completed='', newCompleted='', onePrior='', oneLater=''):
+        if (completed == '' or newCompleted == '' or onePrior == '' or oneLater == ''):
             raise KeyError('Missing one of the param!!')
-        elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, oneHourPrior, oneHourLater])):
+        elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, onePrior, oneLater])):
             raise KeyError(
                 'One of the param does not match the correct timestamp pattern!!')
         else:
@@ -121,7 +121,7 @@ class Queries:
                             ROW_NUMBER() OVER (PARTITION BY linear_channel_id, schedule_start_time, schedule_end_time
                                                 ORDER BY schedule_update_date desc) AS ranked_num
                     FROM cms_linear_schedule_master
-                    WHERE schedule_start_time>='{time1}' and schedule_start_time<'{time2}' and schedule_status<>'REMOVED'
+                    WHERE schedule_start_time>='2020-10-27 00:00:00' and schedule_status<>'REMOVED'
                     ORDER BY schedule_start_time) AS ranked
                     WHERE ranked.ranked_num = 1
                 ) as program
@@ -141,7 +141,7 @@ class Queries:
                     FROM cms_linear_schedule_master
                     WHERE instruction_type='VIDEO' OR instruction_type='INTERSTITIAL' and event_type='CREATE' and instruction_start_time>='{time3}' and instruction_start_time<'{time4}'
                     ORDER BY instruction_start_time) AS ranked
-                    WHERE ranked.ranked_num = 1 and start_time>='{time1}' and start_time<'{time2}'
+                    WHERE ranked.ranked_num = 1
                 ) as video
                 ON video.linear_program_id=program.linear_program_id and video.start_time>=program.schedule_start_time and video.end_time<=program.schedule_end_time
                 LEFT JOIN video_all_data v
@@ -161,4 +161,4 @@ class Queries:
                 ) as linear
                 on linear.linear_channel_id=schedule.channel_id
                 GROUP BY id, channel_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, external_id, frequency_id, distributor
-                """.format(time1=completed, time2=newCompleted, time3=oneHourPrior, time4=oneHourLater)
+                """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
