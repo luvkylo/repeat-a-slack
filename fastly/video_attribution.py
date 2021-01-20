@@ -3,6 +3,7 @@ import time
 import calendar
 import sys
 import hashlib
+import re
 from datetime import datetime
 
 from service import env
@@ -20,8 +21,8 @@ def main():
 
     newPyCompleted = time.strptime(time.strftime(
         "%Y-%m-%d %H:00:00", start), "%Y-%m-%d %H:%M:%S")
-    oneHourLater = time.strftime(
-        "%Y-%m-%d %H:00:00", time.gmtime((calendar.timegm(newPyCompleted)+7200)))
+    oneLater = time.strftime(
+        "%Y-%m-%d %H:00:00", time.gmtime((calendar.timegm(newPyCompleted)+86400)))
     newCompleted = time.strftime("%Y-%m-%d %H:00:00", start)
 
     env_var = env.Env()
@@ -65,8 +66,8 @@ def main():
 
     pyCompleted = time.strptime(completed + " +0000", "%Y-%m-%d %H:%M:%S %z")
 
-    oneHourPrior = time.strftime(
-        "%Y-%m-%d %H:00:00", time.gmtime((calendar.timegm(pyCompleted)-7200)))
+    onePrior = time.strftime(
+        "%Y-%m-%d %H:00:00", time.gmtime((calendar.timegm(pyCompleted)-86400)))
 
     try:
         if pyCompleted < newPyCompleted:
@@ -85,18 +86,20 @@ def main():
             print("Querying all tables...")
             print("Query start: " + completed)
             print("Query end: " + newCompleted)
-            print("Query one hour prior: " + oneHourPrior)
-            print("Query one hour later: " + oneHourLater)
+            print("Query one day and two hours prior: " + onePrior)
+            print("Query one day and two hours later: " + oneLater)
 
             redshift1.execute(
                 queries.fastlyLogWithVideoAndScheduleQuery(
-                    completed=completed, newCompleted=newCompleted, oneHourPrior=oneHourPrior, oneHourLater=oneHourLater)
+                    completed=completed, newCompleted=newCompleted, onePrior=onePrior, oneLater=oneLater)
             )
 
             args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
                                  for x in tuple(redshift1.returnResult()))
 
-            args_str = args_str.decode("utf-8").replace('::timestamp', '')
+            args_str = args_str.decode(
+                "utf-8").replace('::timestamp', '').replace('"', '\\"')
+            args_str = re.sub('\s+', ' ', args_str)
 
             while len(args_str) > 15000000:
                 index = args_str.find(")", 15000000, 16000000)
