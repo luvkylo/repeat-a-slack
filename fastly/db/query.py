@@ -121,7 +121,7 @@ class Queries:
                             ROW_NUMBER() OVER (PARTITION BY linear_channel_id, schedule_start_time, schedule_end_time
                                                 ORDER BY schedule_update_date desc) AS ranked_num
                     FROM cms_linear_schedule_master
-                    WHERE schedule_start_time>='2020-10-27 00:00:00' and schedule_status<>'REMOVED'
+                    WHERE schedule_start_time>='{time3}' and schedule_status<>'REMOVED'
                     ORDER BY schedule_start_time) AS ranked
                     WHERE ranked.ranked_num = 1
                 ) as program
