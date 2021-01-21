@@ -98,7 +98,7 @@ def main():
                                  for x in tuple(redshift1.returnResult()))
 
             args_str = args_str.decode(
-                "utf-8").replace('::timestamp', '').replace('"', '\\"')
+                "utf-8").replace('::timestamp', '').replace('"', '\\"').replace('“', '\\"').replace('”', '\\"')
             args_str = re.sub('\s+', ' ', args_str)
 
             while len(args_str) > 15000000:

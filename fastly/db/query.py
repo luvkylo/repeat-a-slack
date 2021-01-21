@@ -92,7 +92,7 @@ class Queries:
                 schedule.video_start_time as video_start_time,
                 schedule.video_end_time as video_end_time,
                 ROW_NUMBER() OVER (PARTITION BY external_id, program_start_time, id
-                                                ORDER BY video_start_time desc) AS video_ranked,
+                                                ORDER BY video_start_time asc) AS video_ranked,
                 schedule.external_id as external_id,
                 schedule.frequency_id as frequency_id,
                 upper(split_part(split_part(logs.distributor,'-',2), '/', 1)) as distributor,
@@ -121,7 +121,7 @@ class Queries:
                             ROW_NUMBER() OVER (PARTITION BY linear_channel_id, schedule_start_time, schedule_end_time
                                                 ORDER BY schedule_update_date desc) AS ranked_num
                     FROM cms_linear_schedule_master
-                    WHERE schedule_start_time>='2020-10-27 00:00:00' and schedule_status<>'REMOVED'
+                    WHERE schedule_start_time>='{time3}' and schedule_status<>'REMOVED'
                     ORDER BY schedule_start_time) AS ranked
                     WHERE ranked.ranked_num = 1
                 ) as program
