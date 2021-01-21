@@ -92,7 +92,7 @@ class Queries:
                 schedule.video_start_time as video_start_time,
                 schedule.video_end_time as video_end_time,
                 ROW_NUMBER() OVER (PARTITION BY external_id, program_start_time, id
-                                                ORDER BY video_start_time desc) AS video_ranked,
+                                                ORDER BY video_start_time asc) AS video_ranked,
                 schedule.external_id as external_id,
                 schedule.frequency_id as frequency_id,
                 upper(split_part(split_part(logs.distributor,'-',2), '/', 1)) as distributor,
