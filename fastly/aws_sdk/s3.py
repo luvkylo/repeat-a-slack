@@ -152,7 +152,8 @@ class S3:
                     'Bucket': bucket,
                     'Key': key
                 }
-                destKey = destFolder + '/' + key.split('/')[-1]
+                destKey = destFolder + '/' + key.split('/')[-4] + '/' + key.split(
+                    '/')[-3] + '/' + key.split('/')[-2] + '/' + key.split('/')[-1]
                 self.s3.meta.client.copy(copy_source, destBucket, destKey)
                 self.deleteObject(
                     bucket=bucket,
