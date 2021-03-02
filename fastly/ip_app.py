@@ -49,11 +49,20 @@ def main():
     pd.etl(jsonObj=jsonObj)
     df = pd.getdf()
 
+    print("Working on IP extraction....")
+
+    channel_ids = env_var.channel_id.split(',')
+    ipPd = pandas.ETLPandasService()
+    ipPd.ipETL(jsonObj=jsonObj, channelList=channel_ids)
+    ipDf = ipPd.getdf()
+
     print("************************************************************")
     print("Preparing data for Redshift ingestion...")
     # convert dataframe to numpy array
     np_data = df.to_numpy()
     print(len(np_data))
+
+    ipNp_data = ipDf.to_numpy()
 
     print("Connecting to Redshift...")
     # connect to Redshift
@@ -78,6 +87,21 @@ def main():
     if len(args_str) > 0:
         redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count) VALUES " + args_str)
 
+    # inserting IP Tracking Data
+    ipArgs_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s)", x)
+                           for x in tuple(map(tuple, ipNp_data)))
+
+    ipArgs_str = ipArgs_str.decode("utf-8")
+    while len(ipArgs_str) > 15000000:
+        ipIndex = ipArgs_str.find(")", 15000000, 16000000)
+        ipTemp_str = ipArgs_str[0: ipIndex + 1]
+        ipArgs_str = ipArgs_str[ipIndex + 2:]
+        redshift.execute(
+            "INSERT INTO fastly_log_ips (timestamps, ip, channel_id) VALUES " + ipTemp_str)
+    if len(ipArgs_str) > 0:
+        redshift.execute(
+            "INSERT INTO fastly_log_ips (timestamps, ip, channel_id) VALUES " + ipArgs_str)
+
     redshift.closeEverything()
 
     print("************************************************************")
@@ -87,7 +111,8 @@ def main():
         keyList=keyList,
         bucket=env_var.s3_fastly_from_bucket_name,
         destBucket=env_var.s3_to_bucket_name,
-        destFolder=env_var.s3_fastly_logs_to_prefix
+        destFolder=env_var.s3_fastly_logs_to_prefix,
+        jsonObj=jsonObj
     )
 
     print("************************************************************")

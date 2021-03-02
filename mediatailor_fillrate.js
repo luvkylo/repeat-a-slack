@@ -6,6 +6,7 @@ const Redshift = require('node-redshift');
 const property = require('./property');
 
 AWS.config.update({ region: 'us-west-2' });
+const s3 = new AWS.S3();
 
 // const sts = new AWS.STS();
 
@@ -14,15 +15,9 @@ const statusParams = {
   status: 'Running',
 };
 
-const date = new Date();
-const firstDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
-  date.getUTCDate() - 1, date.getUTCHours(), date.getUTCMinutes()));
-const firstMonth = firstDate.getUTCMonth();
-const firstYear = firstDate.getUTCFullYear();
-const firstDay = firstDate.getUTCDate();
-
 const client = property.redshift;
 let x = 0;
+let completed = '';
 
 // Create Redshift connection
 const redshiftClient2 = new Redshift(client, { rawConnection: true });
@@ -94,28 +89,63 @@ function query(queryParams, cloudwatchlogs) {
 
 function cloudwatch(cloudwatchlogs) {
   return new Promise(async (resolve) => {
-    // set query intervals
-    console.log(`Doing ${firstYear}-${firstMonth + 1}-${firstDay}`);
-    const startDate = Date.UTC(firstYear, firstMonth, firstDay, 0, 0, 0, 0);
-    const endDate = Date.UTC(firstYear, firstMonth, firstDay, 23, 59, 59, 999);
+    s3.getObject({
+      Bucket: property.aws.toBucketName,
+      Key: property.aws.fillRateFileLog,
+    }, async (err, data) => {
+      if (err) throw err;
+      else completed = data.Body.toString();
+      console.log(completed);
+      const completedDate = new Date(Date.parse(completed));
 
-    const queryParams = {
-      startTime: startDate,
-      queryString: 'stats SUM(avail.filledDuration), SUM(avail.originAvailDuration), SUM(avail.numAds) by bin(1m), originId | filter eventType like /FILLED/',
-      endTime: endDate,
-      limit: 10000,
-      logGroupName: 'MediaTailor/AdDecisionServerInteractions',
-    };
+      const date = new Date();
+      const firstDate = new Date(Date.UTC(completedDate.getUTCFullYear(),
+        completedDate.getUTCMonth(), completedDate.getUTCDate(),
+        completedDate.getUTCHours(), completedDate.getUTCMinutes()));
+      const firstMonth = firstDate.getUTCMonth();
+      const firstYear = firstDate.getUTCFullYear();
+      const firstDay = firstDate.getUTCDate();
+      const firstHour = firstDate.getUTCHours();
+      const firstMinutes = firstDate.getUTCMinutes();
 
-    // Create Cloudatch connection
-    try {
-      const queryWait = await query(queryParams, cloudwatchlogs).catch((e) => {
-        throw new Error(e);
-      });
-      resolve(queryWait);
-    } catch (e) {
-      throw new Error(e);
-    }
+      const secondDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
+        date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes() - 15));
+      const secondMonth = secondDate.getUTCMonth();
+      const secondYear = secondDate.getUTCFullYear();
+      const secondDay = secondDate.getUTCDate();
+      const secondHour = secondDate.getUTCHours();
+      const secondMinutes = secondDate.getUTCMinutes();
+
+      if (completedDate > (secondDate - 60000)) {
+        console.log('All Recorded Already');
+        resolve([]);
+      } else {
+        completed = secondDate;
+
+        // set query intervals
+        console.log(`Doing ${firstYear}-${firstMonth + 1}-${firstDay} ${firstHour}:${firstMinutes}`);
+        const startDate = Date.UTC(firstYear, firstMonth, firstDay, firstHour, firstMinutes);
+        const endDate = Date.UTC(secondYear, secondMonth, secondDay, secondHour, secondMinutes) - 1;
+
+        const queryParams = {
+          startTime: startDate,
+          queryString: 'stats SUM(avail.filledDuration), SUM(avail.originAvailDuration), SUM(avail.numAds) by bin(1m), originId | filter eventType like /FILLED/',
+          endTime: endDate,
+          limit: 10000,
+          logGroupName: 'MediaTailor/AdDecisionServerInteractions',
+        };
+
+        // Create Cloudatch connection
+        try {
+          const queryWait = await query(queryParams, cloudwatchlogs).catch((e) => {
+            throw new Error(e);
+          });
+          resolve(queryWait);
+        } catch (e) {
+          throw new Error(e);
+        }
+      }
+    });
   });
 }
 
@@ -149,45 +179,63 @@ async function main() {
     console.log(result);
 
     if (result.length > 0) {
-      // for each row in the result, extract the data
-      result.forEach((row) => {
-        let day = ''; let origin_id = ''; let filled_duration_sum = ''; let origin_avail_duration_sum = ''; let
-          num_ads_sum = '';
-        row.forEach((ele) => {
-          if (ele.field === 'bin(1m)') {
-            const [d, time] = ele.value.split(' ');
-            // this is dilebrate because eslint has the array deconstructing warning
-            day = time;
-            day = d.split('-').join('');
-          } else if (ele.field === 'originId') {
-            origin_id = ele.value;
-          } else if (ele.field === 'SUM(avail.filledDuration)') {
-            filled_duration_sum = ele.value;
-          } else if (ele.field === 'SUM(avail.originAvailDuration)') {
-            origin_avail_duration_sum = ele.value;
-          } else if (ele.field === 'SUM(avail.numAds)') {
-            num_ads_sum = ele.value;
-          }
-        });
-        // append it into the redshift query string
-        const tempArr = `('${day}','${origin_id}',${filled_duration_sum},${origin_avail_duration_sum},${num_ads_sum})`;
-        if (x < result.length - 1) { insertKPICmd += `${tempArr},`; } else { insertKPICmd += `${tempArr};`; }
-        x += 1;
-      });
-
       // after parsing through each row, connect to redshift to run the query
       redshiftClient2.connect((connectErr) => {
         if (connectErr) throw connectErr;
         else {
           console.log('Connected to Redshift!');
-          // running the query
-          redshiftClient2.query(insertKPICmd, (queryErr, queryData) => {
-            if (queryErr) throw queryErr;
-            else {
-              console.log(queryData);
-              console.log('Done!');
-              redshiftClient2.close();
+          // for each row in the result, extract the data
+          result.forEach((row) => {
+            let day = ''; let origin_id = ''; let filled_duration_sum = ''; let origin_avail_duration_sum = ''; let
+              num_ads_sum = '';
+            row.forEach((ele) => {
+              if (ele.field === 'bin(1m)') {
+                day = ele.value;
+              } else if (ele.field === 'originId') {
+                origin_id = ele.value;
+              } else if (ele.field === 'SUM(avail.filledDuration)') {
+                filled_duration_sum = ele.value;
+              } else if (ele.field === 'SUM(avail.originAvailDuration)') {
+                origin_avail_duration_sum = ele.value;
+              } else if (ele.field === 'SUM(avail.numAds)') {
+                num_ads_sum = ele.value;
+              }
+            });
+            // append it into the redshift query string
+            const tempArr = `('${day}','${origin_id}',${filled_duration_sum},${origin_avail_duration_sum},${num_ads_sum})`;
+
+            insertKPICmd += tempArr;
+
+            if (Buffer.byteLength(insertKPICmd, 'utf-8') < 15728640 && x < result.length - 1) {
+              insertKPICmd += ',';
+            } else {
+              insertKPICmd += ';';
+
+              // running the query
+              redshiftClient2.query(insertKPICmd, (queryErr, queryData) => {
+                if (queryErr) throw queryErr;
+                else {
+                  console.log(queryData);
+                  console.log('Done!');
+                  insertKPICmd = 'INSERT INTO cwl_mediatailor_fillrate (query_date, origin_id, filled_duration_sum, origin_avail_duration_sum, num_ads_sum) VALUES ';
+                  if (x === result.length) {
+                    redshiftClient2.close();
+                    s3.putObject({
+                      Bucket: property.aws.toBucketName,
+                      Body: completed.toISOString(),
+                      Key: property.aws.fillRateFileLog,
+                    }, (Err, Data) => {
+                      if (Err) throw new Error(Err);
+                      else {
+                        console.log('Record Saved!');
+                        console.log(Data);
+                      }
+                    });
+                  }
+                }
+              });
             }
+            x += 1;
           });
         }
       });

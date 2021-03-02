@@ -53,10 +53,12 @@ function statusFunc(queryId) {
           // if status is running, run the function again
           if (arr.length > 0) {
             try {
-              const status = await statusFunc(queryId).catch((e) => {
-                throw new Error(e);
-              });
-              resolve(status);
+              setTimeout(async () => {
+                const status = await statusFunc(queryId).catch((e) => {
+                  throw new Error(e);
+                });
+                resolve(status);
+              }, 5000);
             } catch (e) {
               console.log(e);
               throw new Error(e);
@@ -77,7 +79,7 @@ function statusFunc(queryId) {
                   records.forEach((record) => {
                     if (record.field === 'bin(1h)') {
                       timestamp = new Date(record.value);
-                    } else if (record.field === 'count(awsAccountId)') {
+                    } else if (record.field === 'count(requestId)') {
                       number = +record.value;
                     }
                   });
@@ -121,7 +123,7 @@ function cloudwatch() {
 
     const queryParams = {
       startTime: startDate,
-      queryString: 'stats count(awsAccountId) by bin(1h)',
+      queryString: 'stats count(requestId) by bin(1h)',
       endTime: endDate,
       limit: 10000,
       logGroupName: 'MediaTailor/AdDecisionServerInteractions',

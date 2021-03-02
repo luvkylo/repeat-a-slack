@@ -2,6 +2,7 @@ import re
 
 import pandas as pd
 import numpy as np
+import datetime
 
 
 class ETLPandasService:
@@ -27,6 +28,63 @@ class ETLPandasService:
                 return False
         return True
 
+    def ipETL(self, jsonObj, channelList=[]):
+        print("Creating Dataframe...")
+
+        try:
+            # convert a dict of data to pandas dataframe
+            self.df = pd.DataFrame.from_dict(jsonObj)
+
+            print("Cleaning up the data...")
+            # update all empty string to NaN
+            self.df = self.df.replace(r'^\s*$', np.nan, regex=True)
+
+            # update column type in dataframe
+            updateArr = ['initial_status', 'final_status',
+                         'response_header_size', 'response_body_size']
+
+            for column in self.df.columns:
+                if column in updateArr:
+                    self.df[column] = self.df[column].astype('int')
+
+            # cleaning up the data and rounding the timestamp to the nearest quarter hour
+            self.df['timestamp'] = pd.to_datetime(
+                self.df['timestamp'], format='%m/%d/%Y %H:%M:%S.00 %Z', utc=True)
+            self.df['timestamp'] = self.df['timestamp'].apply(lambda dt: datetime.datetime(
+                dt.year, dt.month, dt.day, dt.hour, 15*(dt.minute // 15)))
+            self.df['timestamp'] = self.df['timestamp'].dt.strftime(
+                '%Y-%m-%d %H:%M:00')
+            self.df['DNT'] = self.df['DNT'].fillna(0).astype('int')
+
+            # Removing Unwanted rows
+            self.df = self.df.drop(columns=['initial_status', 'final_status', 'user_agent',
+                                            'city', 'country', 'continent', 'region', 'response_header_size', 'response_body_size'])
+
+            self.df = self.df[self.df['DNT'] == 0]
+            self.df = self.df[self.df['url'].str.contains(
+                '(?![chunklist])(\w|\d)+\.m3u8')]
+
+            print("Performing ETL...")
+
+            self.df['channel_id'] = self.df['url'].apply(
+                lambda x: self.match(r"\/(\d+)\/", x))
+
+            self.df = self.df[(self.df['channel_id'].isin(channelList))]
+
+            self.df = self.df.drop(columns=['url', 'DNT'])
+
+            # create aggregated dataframe
+            self.df = self.df.drop_duplicates()
+
+            # update the dataframe before converting it to numpy array
+            self.df = self.df.rename(columns={'timestamp': 'timestamps',
+                                              'client_ip': 'ip'})
+            print(self.df)
+            print("ETL completed")
+        except pd.errors as err:
+            print("Panda errors! Possible data corruption")
+            raise err
+
     def etl(self, jsonObj):
         print("Creating Dataframe...")
 
@@ -38,7 +96,7 @@ class ETLPandasService:
             # update all empty string to NaN
             self.df = self.df.replace(r'^\s*$', np.nan, regex=True)
 
-            # update solumn type in dataframe
+            # update column type in dataframe
             updateArr = ['initial_status', 'final_status',
                          'response_header_size', 'response_body_size']
 
