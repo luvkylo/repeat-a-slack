@@ -37,10 +37,12 @@ function statusFunc(queryId, cloudwatchlogs) {
           // if status is running, run the function again
           if (arr.length > 0) {
             try {
-              const status = await statusFunc(queryId, cloudwatchlogs).catch((e) => {
-                throw new Error(e);
-              });
-              resolve(status);
+              setTimeout(async () => {
+                const status = await statusFunc(queryId, cloudwatchlogs).catch((e) => {
+                  throw new Error(e);
+                });
+                resolve(status);
+              }, 60000);
             } catch (e) {
               throw new Error(e);
             }
