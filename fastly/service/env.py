@@ -25,3 +25,4 @@ class Env:
             'S3_FASTLY_LOGS_FROM_PREFIX')
         self.s3_to_bucket_name = os.getenv('S3_TO_BUCKET_NAME')
         self.s3_fastly_logs_to_prefix = os.getenv('S3_FASTLY_LOGS_TO_PREFIX')
+        # self.channel_id = os.getenv('CHANNEL_ID')
