@@ -1,2 +1,4 @@
 .env
 **/__pycache__/ 
+fastly_linear_schedule.py
+ip_app.py
