@@ -130,7 +130,7 @@ class APIrequests:
                 if videos["linear_program_component_type"] == 'VIDEO':
                     results.append(videos["video_id"])
 
-            results = [''] if len(results) > 0 else results
+            results = [''] if len(results) == 0 else results
 
             return list(set(results))
 
