@@ -188,26 +188,6 @@ class Queries:
                 GROUP BY id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_feed_channel_id, external_id, frequency_id, distributor
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
 
-    # def getAllLinearChannelID(self):
-    #     return """
-    #         SELECT DISTINCT(linear.linear_channel_id), channel.account_id
-    #         FROM cms_linear_schedule_master as linear
-    #         LEFT JOIN (
-    #             WITH ld AS (
-    #                 SELECT linear_channel_id, max("last_modified_date") AS latest
-    #                 FROM cms_linear_channel
-    #                 GROUP BY linear_channel_id
-    #             )
-    #             SELECT linear.linear_channel_id, linear.account_id, status
-    #             FROM cms_linear_channel AS linear
-    #             JOIN ld ON ld.linear_channel_id = linear.linear_channel_id
-    #             WHERE linear."last_modified_date" = ld.latest
-    #         ) as channel
-    #         on linear.linear_channel_id=channel.linear_channel_id
-    #         ORDER BY linear.linear_channel_id ASC;
-    #         WHERE channel.status='ON_AIR'
-    #     """
-
     def checkScheduleID(self, schedule_id=''):
         if (schedule_id == ''):
             raise KeyError('Missing schedule_id!')
