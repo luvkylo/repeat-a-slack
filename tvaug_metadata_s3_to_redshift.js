@@ -319,7 +319,8 @@ function writeToFile(region, key) {
                     // if string is an object
                     if (objLine.match(/}/g) && objLine.match(/{/g) && objLine.match(/{/g).length === objLine.match(/}/g).length) {
                       // more data cleaning
-                      let jsonStr = objLine.trim().replace('null', '').replace('faalse', 'false').replace('::', ':');
+                      let jsonStr = objLine.trim().replace('null', '').replace('faalse', 'false').replace('::', ':')
+                        .replace('Reading \\', 'Reading');
                       jsonStr = jsonStr.replace(',,', ',').replace('": 00,', '": 0,').replace('Pet Sematary [HD}', 'Pet Sematary [HD]');
                       jsonStr = jsonStr.replace('ffalse', 'false').replace('fallse', 'false').replace('falsse', 'false').replace('falsee', 'false');
                       jsonStr = jsonStr.replace('ttrue', 'true').replace('trrue', 'true').replace('truue', 'true').replace('truee', 'true')
