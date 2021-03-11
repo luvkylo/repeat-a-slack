@@ -55,7 +55,8 @@ def main():
 
     print("Getting last timestamp...")
 
-    redshift.execute(queries.getLastCompletedTime())
+    redshift.execute(queries.getLastCompletedTime(
+        job_name='fastly_log_with_video_and_schedule_metadata'))
 
     # This is the query start time (i.e. this is 2020-10-28T00:00:00Z)
     # completed = time.strftime(
@@ -78,7 +79,7 @@ def main():
             print("Creating log entry...")
 
             redshift.execute(queries.initiateLog(
-                hashed_id=hashed_id, startStr=startStr))
+                hashed_id=hashed_id, startStr=startStr, job_name='fastly_log_with_video_and_schedule_metadata'))
 
             print("Created log entry")
             print("************************************************************")
@@ -118,7 +119,7 @@ def main():
 
             redshift.execute(
                 queries.completedLog(hashed_id=hashed_id,
-                                     endStr=endStr, completedStr=completedStr)
+                                     endStr=endStr, completedStr=completedStr, job_name='fastly_log_with_video_and_schedule_metadata')
             )
 
             print("Log updated...closing connection")
@@ -132,7 +133,7 @@ def main():
             raise KeyError("No new query")
     except:
         redshift.execute(queries.errorLog(
-            hashed_id=hashed_id, error=str(sys.exc_info()[1])))
+            hashed_id=hashed_id, error=str(sys.exc_info()[1]), job_name='fastly_log_with_video_and_schedule_metadata'))
 
         redshift.closeEverything()
 
