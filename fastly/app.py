@@ -20,7 +20,7 @@ def main():
     print("************************************************************")
 
     # get a list existing logs
-    gmt = time.gmtime(start - 7200)
+    gmt = time.gmtime(start - 216000)
     print("Getting the list of files to process...")
     S3.getlist(
         bucket=env_var.s3_fastly_from_bucket_name,

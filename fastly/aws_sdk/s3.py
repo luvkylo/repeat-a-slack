@@ -3,6 +3,7 @@ import botocore
 import json
 import re
 import time
+import os
 from os.path import dirname, abspath
 
 import pandas as pd
@@ -140,12 +141,21 @@ class S3:
             filename = keyList[0].split('/')[-4] + keyList[0].split(
                 '/')[-3] + keyList[0].split('/')[-2] + '_' + keyList[0].split('/')[-1].split(' ')[0] + '.csv'
 
-            df.to_csv(directory + '/' + filename)
+            df.to_csv(directory + '/' + filename, index=False)
             destKey = destFolder + '/' + keyList[0].split('/')[-4] + '/' + keyList[0].split(
-                '/')[-3] + '/' + keyList[0].split('/')[-2] + '/' + keyList[0].split('/')[-1].split(' ')[0]
+                '/')[-3] + '/' + keyList[0].split('/')[-2] + '/' + keyList[0].split('/')[-1].split(' ')[0] + '.csv'
 
+            print("Uploading files...")
             self.s3.meta.client.upload_file(
                 directory + '/' + filename, destBucket, destKey)
+            print("Files uploaded")
+            print("Removing local files now")
+            if os.path.exists(directory + '/' + filename):
+                os.remove(directory + '/' + filename)
+            else:
+                print("Local file does not exist")
+            print("Local file removed")
+            print("Removing S3 files now")
             for key in keyList:
                 self.moveObject(
                     bucket=bucket,
