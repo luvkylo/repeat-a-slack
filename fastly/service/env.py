@@ -27,3 +27,4 @@ class Env:
         self.s3_fastly_logs_to_prefix = os.getenv('S3_FASTLY_LOGS_TO_PREFIX')
         self.x_frequency_deviceid = os.getenv('X_FREQUENCY_DEVICEID')
         self.x_frequency_auth = os.getenv('X_FREQUENCY_AUTH')
+        self.timer_start = os.getenv('TIMER_START')
