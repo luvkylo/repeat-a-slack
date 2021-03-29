@@ -23,7 +23,7 @@ def main():
     if (env_var.timer_start is None):
         gmt = time.gmtime(start - 7200)
     else:
-        gmt = time.gmtime(start - env_var.timer_start)
+        gmt = time.gmtime(start - int(env_var.timer_start))
     print("Getting the list of files to process...")
     S3.getlist(
         bucket=env_var.s3_fastly_from_bucket_name,
