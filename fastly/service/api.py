@@ -1,6 +1,7 @@
 import requests
 import json
 import re
+import time
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
@@ -40,9 +41,16 @@ class APIrequests:
                 self.clientErrorCode(
                     code=response.status_code, message=response.json()["message"])
 
-            for channel in response.json():
-                results.append(
-                    (channel["linear_channel_id"], channel["account_id"]))
+            while (response.status_code >= 500 and response.status_code < 600):
+                time.sleep(30)
+                response = self.s.get(url=url, headers=headers)
+            if (response.status_code >= 400 and response.status_code < 500):
+                self.clientErrorCode(
+                    code=response.status_code, message=response.json()["message"])
+            else:
+                for channel in response.json():
+                    results.append(
+                        (channel["linear_channel_id"], channel["account_id"]))
 
             return results
 
@@ -76,22 +84,29 @@ class APIrequests:
             if (response.status_code >= 400 and response.status_code < 500):
                 self.clientErrorCode(
                     code=response.status_code, message=response.json()["message"])
-
-            for program in response.json()["schedules"]:
-                tempList = [program['type_of_program'],
-                            int(program['linear_schedule_id']),
-                            channel_id,
-                            int(program['program_id']),
-                            program['start_time'],
-                            program['end_time'],
-                            int(program['duration']),
-                            program['title'],
-                            program['description'],
-                            program['series'],
-                            program['season'],
-                            program['episode']]
-                # results.append(['' if v is None else v for v in tempList])
-                results.append(tempList)
+            else:
+                while (response.status_code >= 500 and response.status_code < 600):
+                    time.sleep(30)
+                    response = self.s.get(url=url, headers=headers)
+                if (response.status_code >= 400 and response.status_code < 500):
+                    self.clientErrorCode(
+                        code=response.status_code, message=response.json()["message"])
+                else:
+                    for program in response.json()["schedules"]:
+                        tempList = [program['type_of_program'],
+                                    int(program['linear_schedule_id']),
+                                    channel_id,
+                                    int(program['program_id']),
+                                    program['start_time'],
+                                    program['end_time'],
+                                    int(program['duration']),
+                                    program['title'],
+                                    program['description'],
+                                    program['series'],
+                                    program['season'],
+                                    program['episode']]
+                        # results.append(['' if v is None else v for v in tempList])
+                        results.append(tempList)
 
             return results
 
@@ -123,14 +138,26 @@ class APIrequests:
             if (response.status_code >= 400 and response.status_code < 500):
                 self.clientErrorCode(
                     code=response.status_code, message=response.json()["message"])
+            while (response.status_code >= 500 and response.status_code < 600):
+                time.sleep(30)
+                response = self.s.get(url=url, headers=headers)
+            if (response.status_code >= 400 and response.status_code < 500):
+                self.clientErrorCode(
+                    code=response.status_code, message=response.json()["message"])
+            else:
+                results = []
 
-            results = []
+                if response.json()["linear_program_type"] == 'SINGLE_VIDEO_PROGRAM':
+                    results.append(response.json()["video_id"])
+                else:
+                    for videos in response.json()["components"]:
+                        if videos["linear_program_component_type"] == 'VIDEO':
+                            if "broken" in videos and videos["broken"] == True:
+                                continue
+                            else:
+                                results.append(videos["video_id"])
 
-            for videos in response.json()["components"]:
-                if videos["linear_program_component_type"] == 'VIDEO':
-                    results.append(videos["video_id"])
-
-            results = [''] if len(results) == 0 else results
+                results = [''] if len(results) == 0 else results
 
             return list(set(results))
 
@@ -168,12 +195,18 @@ class APIrequests:
             if (response.status_code >= 400 and response.status_code < 500):
                 self.clientErrorCode(
                     code=response.status_code, message=response.json()["message"])
+            while (response.status_code >= 500 and response.status_code < 600):
+                time.sleep(30)
+                response = self.s.get(url=url, headers=headers)
+            if (response.status_code >= 400 and response.status_code < 500):
+                self.clientErrorCode(
+                    code=response.status_code, message=response.json()["message"])
+            else:
+                results = ['']
 
-            results = ['']
-
-            if response.json()['status'] != 'DRAFT':
-                linear_program_id = response.json()['linear_program_id']
-                results = self.getVODProgram(
-                    account_id=account_id, program_id=linear_program_id, freqID=freqID, freqAuth=freqAuth)
+                if response.json()['status'] != 'DRAFT':
+                    linear_program_id = response.json()['linear_program_id']
+                    results = self.getVODProgram(
+                        account_id=account_id, program_id=linear_program_id, freqID=freqID, freqAuth=freqAuth)
 
             return results

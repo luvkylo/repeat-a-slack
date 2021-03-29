@@ -197,3 +197,95 @@ class Queries:
                 FROM cms_linear_schedule
                 WHERE linear_schedule_id='{schedule_id}';
             """.format(schedule_id=schedule_id)
+
+    def fastlyLogWithLinearScheduleQuery(self, completed='', newCompleted='', onePrior='', oneLater=''):
+        if (completed == '' or newCompleted == '' or onePrior == ''):
+            raise KeyError('Missing one of the param!!')
+        elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, onePrior])):
+            raise KeyError(
+                'One of the param does not match the correct timestamp pattern!!')
+        else:
+            return """
+                SELECT
+                    timestamps, distributor, city, country, region, continent,
+                    CASE WHEN sum(minutes_watched) IS NULL THEN 0 ELSE sum(minutes_watched) END as minutes_watched,
+                    CASE WHEN sum(channel_start) IS NULL THEN 0 ELSE sum(channel_start) END as channel_start,
+                    CASE WHEN sum(request_size_bytes) IS NULL THEN 0 ELSE sum(request_size_bytes) END as request_size_bytes,
+                    CASE WHEN sum(request_count) IS NULL THEN 0 ELSE sum(request_count) END as request_count,
+                    CASE WHEN sum(count_720p) IS NULL THEN 0 ELSE sum(count_720p) END as count_720p,
+                    CASE WHEN sum(count_1080p) IS NULL THEN 0 ELSE sum(count_1080p) END as count_1080p,
+                    CASE WHEN sum(between_720p_and_1080p_count) IS NULL THEN 0 ELSE sum(between_720p_and_1080p_count) END as between_720p_and_1080p_count,
+                    CASE WHEN sum(under_720p_count) IS NULL THEN 0 ELSE sum(under_720p_count) END as under_720p_count,
+                    CASE WHEN sum(over_1080p_count) IS NULL THEN 0 ELSE sum(over_1080p_count) END as over_1080p_count,
+                    channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name
+                FROM (
+                    SELECT
+                        DATE_TRUNC('hours', logs.timestamps) as timestamps,
+                        logs.distributor as distributor,
+                        logs.city as city,
+                        logs.country as country,
+                        logs.region as region,
+                        logs.continent as continent,
+                        logs.minutes_watched as minutes_watched,
+                        logs.channel_start as channel_start,
+                        logs.request_size_bytes as request_size_bytes,
+                        logs.request_count as request_count,
+                        logs.count_720p as count_720p,
+                        logs.count_1080p as count_1080p,
+                        logs.between_720p_and_1080p_count as between_720p_and_1080p_count,
+                        logs.under_720p_count as under_720p_count,
+                        logs.over_1080p_count as over_1080p_count,
+                        logs.channel_id as channel_id,
+                        schedule.account_id as account_id,
+                        schedule.linear_channel_id as linear_channel_id,
+                        schedule.schedule_start_time as schedule_start_time,
+                        schedule.schedule_end_time as schedule_end_time,
+                        schedule.schedule_duration_ms as schedule_duration_ms,
+                        schedule.linear_program_id as linear_program_id,
+                        schedule.linear_program_title as linear_program_title,
+                        schedule.linear_program_description as linear_program_description,
+                        CASE WHEN channel.title IS NULL THEN 'Unknown' ELSE channel.title END as channel_name
+                    FROM (
+                        SELECT
+                            timestamps,
+                            distributor,
+                            CASE WHEN country='US' THEN city ELSE '' END as city,
+                            country,
+                            region,
+                            continent,
+                            sum(minutes_watched) as minutes_watched,
+                            sum(channel_start) as channel_start,
+                            sum(request_size_bytes) as request_size_bytes,
+                            sum(request_count) as request_count,
+                            sum(count_720p) as count_720p,
+                            sum(count_1080p) as count_1080p,
+                            sum(between_720p_and_1080p_count) as between_720p_and_1080p_count,
+                            sum(under_720p_count) as under_720p_count,
+                            sum(over_1080p_count) as over_1080p_count,
+                            channel_id
+                        FROM fastly_log_aggregated_metadata
+                        WHERE timestamps>='{time1}' and timestamps<'{time2}'
+                        GROUP BY timestamps, distributor, city, country, region, continent, channel_id
+                    ) as logs
+                    LEFT JOIN (
+                        WITH ld AS (
+                            SELECT linear_channel_id, max("last_modified_date") AS latest
+                            FROM cms_linear_channel
+                            GROUP BY linear_channel_id
+                        )
+                        SELECT linear.linear_channel_id, linear.title
+                        FROM cms_linear_channel AS linear
+                        JOIN ld ON ld.linear_channel_id = linear.linear_channel_id
+                        WHERE linear."last_modified_date" = ld.latest
+                    ) as channel
+                    ON channel.linear_channel_id=logs.channel_id
+                    FULL OUTER JOIN (
+                        SELECT DISTINCT account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description
+                        FROM   cms_linear_schedule
+                        WHERE schedule_start_time>='{time3}' and schedule_start_time<'{time4}'
+                        ORDER  BY schedule_start_time
+                    ) as schedule
+                    ON logs.timestamps >= schedule.schedule_start_time and logs.timestamps < schedule.schedule_end_time and logs.channel_id=schedule.linear_channel_id
+                )
+                GROUP BY timestamps, distributor, city, country, region, continent, channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name
+                """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
