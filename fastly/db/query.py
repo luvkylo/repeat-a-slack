@@ -185,7 +185,6 @@ class Queries:
                     WHERE ranked.ranked_num = 1
                 ) as channel
                 on channel.channel_id = schedule.video_feed_channel_id
-                WHERE program_start_time>'2021-04-01 08:00:00'
                 GROUP BY id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_feed_channel_id, external_id, frequency_id, distributor
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
 
