@@ -211,7 +211,7 @@ class S3:
 
                 # for each log in the file, append it to a jsonObj (dict)
                 for lines in body.iter_lines():
-                    for line in lines.decode('utf-8', 'backslashreplace').splitlines():
+                    for line in lines.decode(encoding="utf-8", errors="backslashreplace").splitlines():
                         line = line.replace("\\", "\\\\")
                         line = line.replace('\\\\"', '\\"')
                         try:

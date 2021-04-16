@@ -167,8 +167,8 @@ def main():
         else:
             print("No new query")
             redshift.closeEverything()
-            print("Connection closed")
-            raise KeyError("No new query")
+            # print("Connection closed")
+            # raise KeyError("No new query")
     except:
         redshift.execute(queries.errorLog(
             hashed_id=hashed_id, error=str(sys.exc_info()[1]), job_name='cms_linear_schedule'))
