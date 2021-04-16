@@ -31,7 +31,7 @@ const redshiftClient2 = new Redshift(client, { rawConnection: true });
 let date = new Date();
 
 date = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
-  date.getUTCDate() - 1));
+  date.getUTCDate() - 3));
 
 const month = date.getUTCMonth() + 1;
 const year = date.getUTCFullYear();
@@ -261,7 +261,7 @@ function writeToFile(region, key) {
             const rl = readline
               .on('line', async (line) => {
                 if (!errorFlag) {
-                  let tline = line.trim().replace('Pet Sematary [HD}', 'Pet Sematary [HD]');
+                  let tline = line.trim();
 
                   // if line has JSON level 1 field name
                   if (tline.includes(ti[countGate]) && prevLine === ',') {
@@ -319,8 +319,7 @@ function writeToFile(region, key) {
                     // if string is an object
                     if (objLine.match(/}/g) && objLine.match(/{/g) && objLine.match(/{/g).length === objLine.match(/}/g).length) {
                       // more data cleaning
-                      let jsonStr = objLine.trim().replace('null', '').replace('faalse', 'false').replace('::', ':')
-                        .replace('Reading \\', 'Reading');
+                      let jsonStr = objLine.trim().replace('null', '').replace('faalse', 'false').replace('::', ':');
                       jsonStr = jsonStr.replace(',,', ',').replace('": 00,', '": 0,');
                       jsonStr = jsonStr.replace('ffalse', 'false').replace('fallse', 'false').replace('falsse', 'false').replace('falsee', 'false');
                       jsonStr = jsonStr.replace('ttrue', 'true').replace('trrue', 'true').replace('truue', 'true').replace('truee', 'true')

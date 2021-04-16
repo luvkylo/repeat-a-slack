@@ -134,7 +134,6 @@ def main():
             print("No new query")
             redshift.closeEverything()
             print("Connection closed")
-            raise KeyError("No new query")
     except:
         redshift.connection.rollback()
         redshift.execute(queries.errorLog(
