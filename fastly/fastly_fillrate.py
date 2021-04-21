@@ -13,9 +13,12 @@ from db import query
 
 
 def main():
+    env_var = env.Env()
+
     start = time.gmtime(time.time() - 10800)
     # this is the query end time (i.e. this is 2020-10-28T01:00:00Z)
-    # start = time.strptime("2021-03-05 00:00:00 +0000", "%Y-%m-%d %H:%M:%S %z")
+    # start = time.strptime("2021-04-21 00:00:00 +0000",
+    #                       "%Y-%m-%d %H:%M:%S %z")
     startStr = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     print('Script start at', startStr)
 
@@ -25,7 +28,7 @@ def main():
         "%Y-%m-%d %H:00:00", time.gmtime((calendar.timegm(newPyCompleted)+86400)))
     newCompleted = time.strftime("%Y-%m-%d %H:00:00", start)
 
-    env_var = env.Env()
+    # env_var = env.Env()
     queries = query.Queries()
 
     print("Connecting to Redshift...")
@@ -56,11 +59,11 @@ def main():
     print("Getting last timestamp...")
 
     redshift.execute(queries.getLastCompletedTime(
-        job_name='fastly_log_with_linear_schedule'))
+        job_name='fastly_log_with_linear_and_fillrate_metadata'))
 
     # This is the query start time (i.e. this is 2020-10-28T00:00:00Z)
     # completed = time.strftime(
-    #     "%Y-%m-%d %H:%M:%S", time.strptime("2021-03-02 00:00:00 +0000", "%Y-%m-%d %H:%M:%S %z"))
+    #     "%Y-%m-%d %H:%M:%S", time.strptime("2020-10-28 00:00:00 +0000", "%Y-%m-%d %H:%M:%S %z"))
     completed = redshift.returnResult()[0][0].strftime("%Y-%m-%d %H:%M:%S")
 
     print("Script last completed at", completed)
@@ -74,14 +77,12 @@ def main():
         if pyCompleted < newPyCompleted:
 
             hashed_id = hashlib.sha256(
-                (startStr + 'fastly_log_with_linear_schedule').encode('utf-8')).hexdigest()
+                (startStr + 'fastly_log_with_linear_and_fillrate_metadata').encode('utf-8')).hexdigest()
 
             print("Creating log entry...")
 
             redshift.execute(queries.initiateLog(
-                hashed_id=hashed_id, startStr=startStr, job_name='fastly_log_with_linear_schedule'))
-
-            redshift.connection.commit()
+                hashed_id=hashed_id, startStr=startStr, job_name='fastly_log_with_linear_and_fillrate_metadata'))
 
             print("Created log entry")
             print("************************************************************")
@@ -90,17 +91,18 @@ def main():
             print("Query start: " + completed)
             print("Query end: " + newCompleted)
             print("Query one day and two hours prior: " + onePrior)
+            print("Query one day and two hours later: " + oneLater)
 
             redshift1.execute(
-                queries.fastlyLogWithLinearScheduleQuery(
+                queries.fastlyLogWithLinearAndFillRateQuery(
                     completed=completed, newCompleted=newCompleted, onePrior=onePrior, oneLater=oneLater)
             )
 
-            args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
+            args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
                                  for x in tuple(redshift1.returnResult()))
 
             args_str = args_str.decode(
-                "utf-8").replace('::timestamp', '').replace('"', '\\"').replace('“', '\\"').replace('”', '\\"')
+                "utf-8").replace('::timestamp', '').replace('"', '\\"').replace('“', '\\"').replace('”', '\\"').replace(" ''", ' "').replace("'')", '")').replace("'' ", '" ')
             args_str = re.sub('\s+', ' ', args_str)
 
             while len(args_str) > 15000000:
@@ -112,14 +114,12 @@ def main():
                 else:
                     temp_str = args_str[0: index + 2].replace(",'',", ',NULL,')
                     args_str = args_str[index + 3:].replace(",'',", ',NULL,')
-                redshift.execute("INSERT INTO fastly_log_with_linear_schedule_metadata (timestamps, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_byte, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name) VALUES " + temp_str)
+                redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum) VALUES " + temp_str)
             if len(args_str) > 0:
                 args_str = args_str.replace(",'',", ',NULL,')
-                redshift.execute("INSERT INTO fastly_log_with_linear_schedule_metadata (timestamps, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_byte, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name) VALUES " + args_str)
+                redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum) VALUES " + args_str)
 
             print("Data ingested")
-
-            redshift.connection.commit()
 
             print("************************************************************")
 
@@ -128,7 +128,7 @@ def main():
 
             redshift.execute(
                 queries.completedLog(hashed_id=hashed_id,
-                                     endStr=endStr, completedStr=completedStr, job_name='fastly_log_with_linear_schedule')
+                                     endStr=endStr, completedStr=completedStr, job_name='fastly_log_with_linear_and_fillrate_metadata')
             )
 
             print("Log updated...closing connection")
@@ -139,10 +139,10 @@ def main():
             print("No new query")
             redshift.closeEverything()
             print("Connection closed")
+            raise KeyError("No new query")
     except:
-        redshift.connection.rollback()
         redshift.execute(queries.errorLog(
-            hashed_id=hashed_id, error=str(sys.exc_info()[1]), job_name='fastly_log_with_linear_schedule'))
+            hashed_id=hashed_id, error=str(sys.exc_info()[1]), job_name='fastly_log_with_linear_and_fillrate_metadata'))
 
         redshift.closeEverything()
 
