@@ -3,6 +3,10 @@ import botocore
 import json
 import re
 import time
+import os
+from os.path import dirname, abspath
+
+import pandas as pd
 
 
 class S3:
@@ -122,7 +126,7 @@ class S3:
                 )
             print("All Files are removed")
 
-    def moveObjects(self, keyList='', bucket='', destBucket='', destFolder=''):
+    def moveObjects(self, keyList='', bucket='', destBucket='', destFolder='', jsonObj=''):
         if (bucket == '' or destBucket == ''):
             raise KeyError('Missing bucket name!')
         elif (destFolder == ''):
@@ -130,6 +134,28 @@ class S3:
         elif (keyList == ''):
             raise KeyError('Missing list of S3 Keys!')
         else:
+            df = pd.DataFrame.from_dict(jsonObj)
+            df = df.drop(columns=['client_ip'])
+
+            directory = dirname(abspath(__file__))
+            filename = keyList[0].split('/')[-4] + keyList[0].split(
+                '/')[-3] + keyList[0].split('/')[-2] + '_' + keyList[0].split('/')[-1].split(' ')[0] + '.csv'
+
+            df.to_csv(directory + '/' + filename, index=False)
+            destKey = destFolder + '/' + keyList[0].split('/')[-4] + '/' + keyList[0].split(
+                '/')[-3] + '/' + keyList[0].split('/')[-2] + '/' + keyList[0].split('/')[-1].split(' ')[0] + '.csv'
+
+            print("Uploading files...")
+            self.s3.meta.client.upload_file(
+                directory + '/' + filename, destBucket, destKey)
+            print("Files uploaded")
+            print("Removing local files now")
+            if os.path.exists(directory + '/' + filename):
+                os.remove(directory + '/' + filename)
+            else:
+                print("Local file does not exist")
+            print("Local file removed")
+            print("Removing S3 files now")
             for key in keyList:
                 self.moveObject(
                     bucket=bucket,
@@ -148,13 +174,6 @@ class S3:
             raise KeyError('Missing key value!')
         else:
             try:
-                copy_source = {
-                    'Bucket': bucket,
-                    'Key': key
-                }
-                destKey = destFolder + '/' + key.split('/')[-4] + '/' + key.split(
-                    '/')[-3] + '/' + key.split('/')[-2] + '/' + key.split('/')[-1]
-                self.s3.meta.client.copy(copy_source, destBucket, destKey)
                 self.deleteObject(
                     bucket=bucket,
                     key=key
@@ -181,6 +200,8 @@ class S3:
             channel59 = []
             emptyChannel = []
 
+            emptyLog = 0
+
             # for each log file in s3, download it
             for key in keyList:
                 body = self.getObject(
@@ -195,6 +216,7 @@ class S3:
                         line = line.replace('\\\\"', '\\"')
                         try:
                             obj = json.loads(line)
+                            emptyLog += 1
                             for objKey in obj.keys():
                                 if objKey == 'geo':
                                     for loc in obj[objKey].keys():
@@ -215,7 +237,8 @@ class S3:
                                     if objKey in jsonObj:
                                         jsonObj[objKey].append(obj[objKey])
                                     else:
-                                        jsonObj[objKey] = [obj[objKey]]
+                                        jsonObj[objKey] = [''] * (emptyLog - 1)
+                                        jsonObj[objKey].append(obj[objKey])
                         except:
                             print(line)
 
