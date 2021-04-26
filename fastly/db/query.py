@@ -118,47 +118,40 @@ class Queries:
                     program.linear_channel_id as channel_id,
                     program.schedule_start_time as program_start_time,
                     program.schedule_end_time as program_end_time,
-                    video.linear_program_title as program_title,
+                    program.linear_program_title as program_title,
                     v.video_title as video_title,
                     v.video_description as video_description,
                     video.start_time as video_start_time,
                     video.end_time as video_end_time,
                     v.video_source_id as external_id,
                     v.video_feed_channel_id as video_feed_channel_id,
-                    video.instruction_reference_asset_id as frequency_id
+                    program.video_id as frequency_id
                 FROM (
-                    SELECT linear_channel_id, schedule_start_time, schedule_end_time, linear_program_id
-                    FROM
-                    (
-                        SELECT distinct linear_channel_id, schedule_start_time, schedule_end_time, linear_program_id,
-                            ROW_NUMBER() OVER (PARTITION BY linear_channel_id, schedule_start_time, schedule_end_time
-                                                ORDER BY schedule_update_date desc) AS ranked_num
-                        FROM cms_linear_schedule_master
-                        WHERE schedule_start_time>='{time3}' and schedule_status<>'REMOVED'
-                        ORDER BY schedule_start_time) AS ranked
-                        WHERE ranked.ranked_num = 1
-                    ) as program
-                    LEFT JOIN (
-                        SELECT
-                        linear_program_title,
-                        linear_program_description,
-                        instruction_start_time,
-                        CASE WHEN DATE_PART(min, instruction_start_time) >= 30 THEN DATE_TRUNC('minutes', DATEADD(min, 1, instruction_start_time)) ELSE DATE_TRUNC('minutes', instruction_start_time) END as start_time,
-                        CASE WHEN DATE_PART(min, DATEADD('ms', instruction_duration_ms, instruction_start_time)) >= 30 THEN DATE_TRUNC('minutes', DATEADD(min, 1, DATEADD('ms', instruction_duration_ms, instruction_start_time))) ELSE DATE_TRUNC('minutes', DATEADD('ms', instruction_duration_ms, instruction_start_time)) END as end_time,
-                        instruction_reference_asset_id,
-                        linear_program_id
-                        FROM (
-                        SELECT linear_program_title, linear_channel_id, linear_program_description, instruction_start_time, instruction_reference_asset_id, instruction_duration_ms, linear_program_id, instruction_reference_start_ms,
-                            ROW_NUMBER() OVER (PARTITION BY linear_channel_id, linear_program_title, instruction_reference_asset_id, instruction_start_time
+                    SELECT DISTINCT linear_channel_id, schedule_start_time, schedule_end_time, linear_program_id, linear_program_title, linear_program_description, video_id
+                    FROM   cms_linear_schedule
+                    WHERE schedule_start_time>='{time3}' and schedule_start_time<'{time4}'
+                    ORDER  BY schedule_start_time
+                ) as program
+                LEFT JOIN (
+                    SELECT
+                    linear_program_id,
+                    instruction_start_time,
+                    CASE WHEN DATE_PART(min, instruction_start_time) >= 30 THEN DATE_TRUNC('minutes', DATEADD(min, 1, instruction_start_time)) ELSE DATE_TRUNC('minutes', instruction_start_time) END as start_time,
+                    CASE WHEN DATE_PART(min, DATEADD('ms', instruction_duration_ms, instruction_start_time)) >= 30 THEN DATE_TRUNC('minutes', DATEADD(min, 1, DATEADD('ms', instruction_duration_ms, instruction_start_time))) ELSE DATE_TRUNC('minutes', DATEADD('ms', instruction_duration_ms, instruction_start_time)) END as end_time,
+                    instruction_reference_asset_id
+                    FROM (
+                    SELECT instruction_start_time, instruction_reference_asset_id, instruction_duration_ms, instruction_reference_start_ms, linear_program_id,
+                            ROW_NUMBER() OVER (PARTITION BY linear_program_id, instruction_reference_asset_id, instruction_start_time
                                             ORDER BY event_time desc) AS ranked_num
-                        FROM cms_linear_schedule_master
-                        WHERE instruction_type='VIDEO' OR instruction_type='INTERSTITIAL' and event_type='CREATE' and instruction_start_time>='{time3}' and instruction_start_time<'{time4}'
-                        ORDER BY instruction_start_time) AS ranked
-                        WHERE ranked.ranked_num = 1
-                    ) as video
-                    ON video.linear_program_id=program.linear_program_id and video.start_time>=program.schedule_start_time and video.end_time<=program.schedule_end_time
-                    LEFT JOIN video_all_data v
-                    ON video.instruction_reference_asset_id=v.video_id
+                    FROM cms_linear_schedule_master
+                    WHERE instruction_type='VIDEO' OR instruction_type='INTERSTITIAL' and instruction_start_time>='{time3}' and instruction_start_time<'{time4}'
+                    ORDER BY instruction_start_time
+                    ) AS ranked
+                    WHERE ranked.ranked_num = 1
+                ) as video
+                ON program.video_id=video.instruction_reference_asset_id and video.linear_program_id=program.linear_program_id and video.start_time>=program.schedule_start_time and video.end_time<=program.schedule_end_time
+                LEFT JOIN video_all_data v
+                ON program.video_id=v.video_id
                 ) as schedule
                 ON logs.timestamps >= schedule.video_start_time and logs.timestamps < schedule.video_end_time and logs.channel_id=schedule.channel_id
                 LEFT JOIN (
@@ -288,4 +281,97 @@ class Queries:
                     ON logs.timestamps >= schedule.schedule_start_time and logs.timestamps < schedule.schedule_end_time and logs.channel_id=schedule.linear_channel_id
                 )
                 GROUP BY timestamps, distributor, city, country, region, continent, channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name
+                """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
+
+    def fastlyLogWithLinearAndFillRateQuery(self, completed='', newCompleted='', onePrior='', oneLater=''):
+        if (completed == '' or newCompleted == '' or onePrior == ''):
+            raise KeyError('Missing one of the param!!')
+        elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, onePrior])):
+            raise KeyError(
+                'One of the param does not match the correct timestamp pattern!!')
+        else:
+            return """
+                SELECT 
+                    agg.timestamps as timestamps,
+                    agg.channel_id as channel_id,
+                    agg.start_time as schedule_start_time,
+                    agg.end_time as schedule_end_time,
+                    agg.title as linear_program_title,
+                    sum(agg.minutes_watched) as minutes_watched,
+                    agg.duration as schedule_duration_ms,
+                    agg.description as linear_program_description,
+                    agg.channel_name as channel_name,
+                    agg.distributor as distributor,
+                    sum(agg.filled_duration_sum) as filled_duration_sum,
+                    sum(agg.origin_avail_duration_sum) as origin_avail_duration_sum,
+                    sum(agg.num_ads_sum) as num_ads_sum
+                    FROM (
+                    SELECT 
+                        a.timestamps as timestamps,
+                        a.id as channel_id,
+                        a.start_time as start_time,
+                        a.end_time as end_time,
+                        a.title as title,
+                        sum(a.minutes_watched) as minutes_watched,
+                        a.duration as duration,
+                        a.description as description,
+                        CASE WHEN linear.channel_name IS NULL THEN 'Unknown' ELSE linear.channel_name END as channel_name,
+                        CASE WHEN upper(split_part(split_part(a.distributor,'-',2), '/', 1))='' THEN fill2.distributor ELSE upper(split_part(split_part(a.distributor,'-',2), '/', 1)) END as distributor,
+                        CASE WHEN sum(fill.filled_duration_sum) IS NULL THEN sum(fill2.filled_duration_sum) ELSE sum(fill.filled_duration_sum) END as filled_duration_sum,
+                        CASE WHEN sum(fill.origin_avail_duration_sum) IS NULL THEN sum(fill2.origin_avail_duration_sum) ELSE sum(fill.origin_avail_duration_sum) END as origin_avail_duration_sum,
+                        CASE WHEN sum(fill.num_ads_sum) IS NULL THEN sum(fill2.num_ads_sum) ELSE sum(fill.num_ads_sum) END as num_ads_sum
+                    FROM (
+                        SELECT 
+                            logs.timestamps as timestamps,
+                            logs.next_timestamps as next_timestamps,
+                            schedule.linear_channel_id as id,
+                            schedule.schedule_start_time as start_time,
+                            schedule.schedule_end_time as end_time,
+                            schedule.linear_program_title as title,
+                            schedule.linear_program_description as description,
+                            schedule.schedule_duration_ms as duration,
+                            logs.distributor as distributor,
+                            sum(logs.minutes_watched) as minutes_watched
+                        FROM (
+                            SELECT timestamps, lead(timestamps,1) over (order by channel_id, distributor) as next_timestamps, channel_id, distributor, sum(minutes_watched) as minutes_watched
+                            FROM fastly_log_aggregated_metadata
+                            WHERE timestamps>='{time1}' and timestamps<'{time2}'
+                            GROUP BY timestamps, channel_id, distributor
+                        ) as logs
+                        LEFT JOIN (
+                            SELECT DISTINCT linear_channel_id::integer, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_title, linear_program_description
+                            FROM   cms_linear_schedule
+                            WHERE schedule_start_time>='{time3}' and schedule_end_time<'{time4}'
+                            ORDER  BY schedule_start_time
+                        ) as schedule
+                        ON logs.timestamps >= schedule.schedule_start_time and logs.timestamps < schedule.schedule_end_time and logs.channel_id=schedule.linear_channel_id
+                        GROUP BY timestamps, next_timestamps, id, start_time, end_time, title, duration, description, distributor
+                    ) as a
+                    LEFT JOIN (
+                        SELECT query_date, (CASE WHEN regexp_substr(origin_id, '-(\\d+)-', 1, 1, 'e')='' THEN NULL ELSE regexp_substr(origin_id, '-(\\d+)-', 1, 1, 'e') END)::integer as channel_id, split_part(origin_id,'-',4) as distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum
+                        FROM cwl_mediatailor_fillrate
+                        WHERE query_date>='{time3}' and query_date<'{time4}'
+                    ) as fill
+                    ON fill.query_date >= a.timestamps and fill.query_date < a.next_timestamps and fill.channel_id=a.id and fill.distributor=a.distributor
+                    LEFT JOIN (
+                        SELECT query_date, (CASE WHEN regexp_substr(origin_id, '-(\\d+)-', 1, 1, 'e')='' THEN NULL ELSE regexp_substr(origin_id, '-(\\d+)-', 1, 1, 'e') END)::integer as channel_id, split_part(origin_id,'-',4) as distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum
+                        FROM cwl_mediatailor_fillrate
+                        WHERE query_date>='{time3}' and query_date<'{time4}'
+                    ) as fill2
+                    ON fill2.query_date >= a.timestamps and fill2.query_date < a.next_timestamps and fill2.channel_id=a.id and a.distributor='-'
+                    LEFT JOIN (
+                        WITH ld AS (
+                            SELECT linear_channel_id, max("last_modified_date") AS latest 
+                            FROM cms_linear_channel 
+                            GROUP BY linear_channel_id
+                        )
+                        SELECT linear.linear_channel_id, linear.title as channel_name
+                        FROM cms_linear_channel AS linear
+                        JOIN ld ON ld.linear_channel_id = linear.linear_channel_id
+                        WHERE linear."last_modified_date" = ld.latest
+                    ) as linear
+                    on linear.linear_channel_id=a.id
+                    GROUP BY timestamps, a.id, start_time, end_time, title, channel_name, a.distributor, fill2.distributor, duration, description
+                    ) as agg
+                    GROUP BY timestamps, channel_id, start_time, end_time, title, channel_name, distributor, duration, description
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
