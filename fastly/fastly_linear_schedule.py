@@ -105,13 +105,8 @@ def main():
 
             while len(args_str) > 15000000:
                 index = args_str.find("')", 15000000, 16000000)
-                if index == -1:
-                    index = args_str.find("NULL)", 15000000, 16000000)
-                    temp_str = args_str[0: index + 5].replace(",'',", ',NULL,')
-                    args_str = args_str[index + 6:].replace(",'',", ',NULL,')
-                else:
-                    temp_str = args_str[0: index + 2].replace(",'',", ',NULL,')
-                    args_str = args_str[index + 3:].replace(",'',", ',NULL,')
+                temp_str = args_str[0: index + 2].replace(",'',", ',NULL,')
+                args_str = args_str[index + 3:].replace(",'',", ',NULL,')
                 redshift.execute("INSERT INTO fastly_log_with_linear_schedule_metadata (timestamps, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_byte, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name) VALUES " + temp_str)
             if len(args_str) > 0:
                 args_str = args_str.replace(",'',", ',NULL,')
@@ -139,6 +134,7 @@ def main():
             print("No new query")
             redshift.closeEverything()
             print("Connection closed")
+            raise KeyError("No new query")
     except:
         redshift.connection.rollback()
         redshift.execute(queries.errorLog(

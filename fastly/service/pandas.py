@@ -2,7 +2,6 @@ import re
 
 import pandas as pd
 import numpy as np
-import datetime
 
 
 class ETLPandasService:
@@ -39,7 +38,7 @@ class ETLPandasService:
             # update all empty string to NaN
             self.df = self.df.replace(r'^\s*$', np.nan, regex=True)
 
-            # update column type in dataframe
+            # update solumn type in dataframe
             updateArr = ['initial_status', 'final_status',
                          'response_header_size', 'response_body_size']
 
@@ -64,7 +63,7 @@ class ETLPandasService:
             self.df['distributor'] = self.df['url'].apply(
                 lambda x: (self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, group=1) + '-' + self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, group=2).title().replace("-", "_")))
             self.df['minutes_watched'] = self.df['url'].apply(
-                lambda x: self.regex_substring_count(r"(playlist.+\.m3u8)|(chunklist.*\.m3u8)", x)).astype('int')*6/60
+                lambda x: self.regex_substring_count(r"\.ts", x)).astype('int')*6/60
             self.df['channel_start'] = self.df['url'].apply(
                 lambda x: self.regex_substring_count(r"(?![chunklist])(\w|\d)+\.m3u8", x)).astype('int')
             self.df['count'] = 1
@@ -79,8 +78,6 @@ class ETLPandasService:
             self.df['over_1080p_count'] = self.df['url'].apply(
                 lambda x: 1 if self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"\d{3,4}p"], x) and int(re.search(r"(\d{3,4})p", x).group(1)) > 1080 else 0).astype('int')
             self.df['city'] = self.df['city'].apply(lambda x: str(x).title())
-            self.df['debug_url'] = np.where(np.logical_or(
-                self.df['channel_id'].isnull(), self.df['distributor'] == '-'), self.df['url'], '')
 
             self.df = self.df.drop(columns=['response_header_size', 'response_body_size',
                                             'url', 'initial_status', 'final_status'])
@@ -88,7 +85,7 @@ class ETLPandasService:
             print("Performing ETL...")
             # create aggregated dataframe
             self.df = self.df.groupby(by=['timestamp', 'status', 'channel_id',
-                                          'distributor', 'city', 'country', 'region', 'continent', 'debug_url']).sum().reset_index()
+                                          'distributor', 'city', 'country', 'region', 'continent']).sum().reset_index()
 
             # update the dataframe before converting it to numpy array
             self.df = self.df.rename(columns={'timestamp': 'timestamps',
@@ -96,8 +93,7 @@ class ETLPandasService:
 
             # rearranging the column order
             cols = self.df.columns.tolist()
-            cols = cols[0:8] + cols[11:13] + \
-                cols[10:11] + cols[13:] + cols[8:9]
+            cols = cols[0:8] + cols[10:12] + cols[9:10] + cols[12:]
 
             self.df = self.df[cols]
 
