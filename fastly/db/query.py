@@ -348,13 +348,13 @@ class Queries:
                         GROUP BY timestamps, next_timestamps, id, start_time, end_time, title, duration, description, distributor
                     ) as a
                     LEFT JOIN (
-                        SELECT query_date, (CASE WHEN regexp_substr(origin_id, '-(\\d+)-', 1, 1, 'e')='' THEN NULL ELSE regexp_substr(origin_id, '-(\\d+)-', 1, 1, 'e') END)::integer as channel_id, split_part(origin_id,'-',4) as distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum
+                        SELECT query_date, (CASE WHEN regexp_substr(origin_id, '-(\\\\d+)-', 1, 1, 'e')='' THEN NULL ELSE regexp_substr(origin_id, '-(\\\\d+)-', 1, 1, 'e') END)::integer as channel_id, split_part(origin_id,'-',4) as distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum
                         FROM cwl_mediatailor_fillrate
                         WHERE query_date>='{time3}' and query_date<'{time4}'
                     ) as fill
                     ON fill.query_date >= a.timestamps and fill.query_date < a.next_timestamps and fill.channel_id=a.id and fill.distributor=a.distributor
                     LEFT JOIN (
-                        SELECT query_date, (CASE WHEN regexp_substr(origin_id, '-(\\d+)-', 1, 1, 'e')='' THEN NULL ELSE regexp_substr(origin_id, '-(\\d+)-', 1, 1, 'e') END)::integer as channel_id, split_part(origin_id,'-',4) as distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum
+                        SELECT query_date, (CASE WHEN regexp_substr(origin_id, '-(\\\\d+)-', 1, 1, 'e')='' THEN NULL ELSE regexp_substr(origin_id, '-(\\\\d+)-', 1, 1, 'e') END)::integer as channel_id, split_part(origin_id,'-',4) as distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum
                         FROM cwl_mediatailor_fillrate
                         WHERE query_date>='{time3}' and query_date<'{time4}'
                     ) as fill2
