@@ -297,7 +297,7 @@ class Queries:
                     agg.start_time as schedule_start_time,
                     agg.end_time as schedule_end_time,
                     agg.title as linear_program_title,
-                    sum(agg.minutes_watched) as minutes_watched,
+                    max(agg.minutes_watched) as minutes_watched,
                     agg.duration as schedule_duration_ms,
                     agg.description as linear_program_description,
                     agg.channel_name as channel_name,
@@ -312,11 +312,11 @@ class Queries:
                         a.start_time as start_time,
                         a.end_time as end_time,
                         a.title as title,
-                        sum(a.minutes_watched) as minutes_watched,
+                        max(a.minutes_watched) as minutes_watched,
                         a.duration as duration,
                         a.description as description,
                         CASE WHEN linear.channel_name IS NULL THEN 'Unknown' ELSE linear.channel_name END as channel_name,
-                        CASE WHEN upper(split_part(split_part(a.distributor,'-',2), '/', 1))='' THEN fill2.distributor ELSE upper(split_part(split_part(a.distributor,'-',2), '/', 1)) END as distributor,
+                        CASE WHEN a.distributor='' THEN fill2.distributor ELSE a.distributor END as distributor,
                         CASE WHEN sum(fill.filled_duration_sum) IS NULL THEN sum(fill2.filled_duration_sum) ELSE sum(fill.filled_duration_sum) END as filled_duration_sum,
                         CASE WHEN sum(fill.origin_avail_duration_sum) IS NULL THEN sum(fill2.origin_avail_duration_sum) ELSE sum(fill.origin_avail_duration_sum) END as origin_avail_duration_sum,
                         CASE WHEN sum(fill.num_ads_sum) IS NULL THEN sum(fill2.num_ads_sum) ELSE sum(fill.num_ads_sum) END as num_ads_sum
@@ -330,10 +330,10 @@ class Queries:
                             schedule.linear_program_title as title,
                             schedule.linear_program_description as description,
                             schedule.schedule_duration_ms as duration,
-                            logs.distributor as distributor,
+                            upper(split_part(split_part(logs.distributor,'-',2), '/', 1)) as distributor,
                             sum(logs.minutes_watched) as minutes_watched
                         FROM (
-                            SELECT timestamps, lead(timestamps,1) over (order by channel_id, distributor) as next_timestamps, channel_id, distributor, sum(minutes_watched) as minutes_watched
+                            SELECT timestamps, lead(timestamps,1) over (order by timestamps, channel_id, distributor) as next_timestamps, channel_id, distributor, sum(minutes_watched) as minutes_watched
                             FROM fastly_log_aggregated_metadata
                             WHERE timestamps>='{time1}' and timestamps<'{time2}'
                             GROUP BY timestamps, channel_id, distributor
@@ -358,7 +358,7 @@ class Queries:
                         FROM cwl_mediatailor_fillrate
                         WHERE query_date>='{time3}' and query_date<'{time4}'
                     ) as fill2
-                    ON fill2.query_date >= a.timestamps and fill2.query_date < a.next_timestamps and fill2.channel_id=a.id and a.distributor='-'
+                    ON fill2.query_date >= a.timestamps and fill2.query_date < a.next_timestamps and fill2.channel_id=a.id and a.distributor=''
                     LEFT JOIN (
                         WITH ld AS (
                             SELECT linear_channel_id, max("last_modified_date") AS latest 
