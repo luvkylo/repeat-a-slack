@@ -38,10 +38,11 @@ class S3:
         if ("Contents" in response.keys()):
             for keyObj in response["Contents"]:
                 if '.log' in keyObj["Key"]:
-                    timestamp = re.search(
-                        r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
-                    log_time = time.strptime(
-                        timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
+                    # timestamp = re.search(
+                    #     r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
+                    # log_time = time.strptime(
+                    #     timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
+                    log_time = keyObj["LastModified"].timetuple()
                     if time.mktime(log_time) < time.mktime(gmt):
                         self.keylist.append(keyObj["Key"])
 
