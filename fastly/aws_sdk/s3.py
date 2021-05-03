@@ -43,7 +43,7 @@ class S3:
                     log_time = time.strptime(
                         timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
                     log_las_modified_time = keyObj["LastModified"].timetuple()
-                    if time.mktime(log_time) < time.mktime(gmt) or time.mktime(log_las_modified_time) < time.mktime(gmt):
+                    if time.mktime(log_time) < time.mktime(gmt) or time.mktime(log_las_modified_time) < (time.mktime(gmt) - 900):
                         self.keylist.append(keyObj["Key"])
 
         if response["IsTruncated"] == True:
