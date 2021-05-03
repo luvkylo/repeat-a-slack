@@ -111,7 +111,7 @@ function cloudwatch(cloudwatchlogs) {
       const firstMinutes = firstDate.getUTCMinutes();
 
       const secondDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(),
-        date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes() - 15));
+        date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes() - 45));
       const secondMonth = secondDate.getUTCMonth();
       const secondYear = secondDate.getUTCFullYear();
       const secondDay = secondDate.getUTCDate();
