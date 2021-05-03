@@ -42,7 +42,8 @@ class S3:
                         r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
                     log_time = time.strptime(
                         timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
-                    if time.mktime(log_time) < time.mktime(gmt):
+                    log_las_modified_time = keyObj["LastModified"].timetuple()
+                    if any([time.mktime(log_time) < time.mktime(gmt), time.mktime(log_las_modified_time) < (time.mktime(gmt) + 900)]):
                         self.keylist.append(keyObj["Key"])
 
         if response["IsTruncated"] == True:
