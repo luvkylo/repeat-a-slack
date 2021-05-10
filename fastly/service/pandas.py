@@ -79,8 +79,8 @@ class ETLPandasService:
             self.df['over_1080p_count'] = self.df['url'].apply(
                 lambda x: 1 if self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"\d{3,4}p"], x) and int(re.search(r"(\d{3,4})p", x).group(1)) > 1080 else 0).astype('int')
             self.df['city'] = self.df['city'].apply(lambda x: str(x).title())
-            self.df['debug_url'] = np.where(np.logical_or(
-                self.df['channel_id'].isnull(), self.df['distributor'] == '-'), self.df['url'], '')
+            self.df['debug_url'] = np.where(np.logical_or(np.logical_or(
+                self.df['channel_id'].isnull(), self.df['distributor'] == '-'), np.logical_and(self.df['status'] >= 400, self.df['status'] < 500)), self.df['url'], '')
 
             self.df = self.df.drop(columns=['response_header_size', 'response_body_size',
                                             'url', 'initial_status', 'final_status'])
