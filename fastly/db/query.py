@@ -111,7 +111,7 @@ class Queries:
                 FROM (
                 SELECT timestamps, channel_id, distributor, minutes_watched
                 FROM fastly_log_aggregated_metadata
-                WHERE timestamps>='{time1}' and timestamps<'{time2}'
+                WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='400' and status<'500'
                 ) as logs
                 LEFT JOIN (
                 SELECT
@@ -257,7 +257,7 @@ class Queries:
                             sum(over_1080p_count) as over_1080p_count,
                             channel_id
                         FROM fastly_log_aggregated_metadata
-                        WHERE timestamps>='{time1}' and timestamps<'{time2}'
+                        WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='400' and status<'500'
                         GROUP BY timestamps, distributor, city, country, region, continent, channel_id
                     ) as logs
                     LEFT JOIN (
@@ -324,7 +324,7 @@ class Queries:
                         FROM (
                             SELECT timestamps, CASE WHEN channel_id=' ' THEN NULL ELSE channel_id END as channel_id, upper(split_part(split_part(distributor,'-',2), '/', 1)) as distributor, sum(minutes_watched) as minutes_watched
                             FROM fastly_log_aggregated_metadata
-                            WHERE timestamps>='{time1}' and timestamps<'{time2}' 
+                            WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='400' and status<'500'
                             GROUP BY timestamps, channel_id, distributor
                         ) as logs
                         GROUP BY timestamps, channel_id, distributor
