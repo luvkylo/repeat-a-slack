@@ -53,6 +53,8 @@ class ETLPandasService:
             self.df['timestamp'] = self.df['timestamp'].dt.strftime(
                 '%Y-%m-%d %H:%M:00')
             self.df['DNT'] = self.df['DNT'].fillna(0).astype('int')
+            self.df['client_request'] = self.df['client_request'].fillna(
+                0).astype('int')
 
             print("Creating additional columns...")
             self.df['status'] = self.df['initial_status']
@@ -81,6 +83,8 @@ class ETLPandasService:
             self.df['city'] = self.df['city'].apply(lambda x: str(x).title())
             self.df['debug_url'] = np.where(np.logical_or(np.logical_or(
                 self.df['channel_id'].isnull(), self.df['distributor'] == '-'), np.logical_and(self.df['status'] >= 400, self.df['status'] < 500)), self.df['url'], '')
+            self.df['client_request'] = self.df['client_request'].apply(
+                lambda x: 1 if x > 0 else 0).astype('int')
 
             self.df = self.df.drop(columns=['response_header_size', 'response_body_size',
                                             'url', 'initial_status', 'final_status'])
@@ -97,7 +101,7 @@ class ETLPandasService:
             # rearranging the column order
             cols = self.df.columns.tolist()
             cols = ["timestamps", "status", "channel_id", "distributor", "city", "country", "region", "continent", "minutes_watched", "channel_start",
-                    "request_size_bytes", "request_count", "count_720p", "count_1080p", "between_720p_and_1080p_count", "under_720p_count", "over_1080p_count", "debug_url"]
+                    "request_size_bytes", "request_count", "count_720p", "count_1080p", "between_720p_and_1080p_count", "under_720p_count", "over_1080p_count", "debug_url", "client_request"]
             # cols = cols[0:8] + cols[11:13] + \
             #     cols[10:11] + cols[13:] + cols[8:9]
 

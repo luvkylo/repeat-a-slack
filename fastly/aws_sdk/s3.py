@@ -243,6 +243,9 @@ class S3:
                         except:
                             print(line)
 
+            if "client_request" not in jsonObj:
+                jsonObj["client_request"] = [''] * emptyLog
+
             # **
             # if len(channel2) > 0:
             #     self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
