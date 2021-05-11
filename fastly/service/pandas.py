@@ -41,7 +41,7 @@ class ETLPandasService:
 
             # update column type in dataframe
             updateArr = ['initial_status', 'final_status',
-                         'response_header_size', 'response_body_size']
+                         'response_header_size', 'response_body_size', 'client_request']
 
             for column in self.df.columns:
                 if column in updateArr:
@@ -81,6 +81,8 @@ class ETLPandasService:
             self.df['city'] = self.df['city'].apply(lambda x: str(x).title())
             self.df['debug_url'] = np.where(np.logical_or(np.logical_or(
                 self.df['channel_id'].isnull(), self.df['distributor'] == '-'), np.logical_and(self.df['status'] >= 400, self.df['status'] < 500)), self.df['url'], '')
+            self.df['client_request'] = self.df['client_request'].apply(
+                lambda x: 1 if self.df['client_request'] > 0 else 0).astype('int')
 
             self.df = self.df.drop(columns=['response_header_size', 'response_body_size',
                                             'url', 'initial_status', 'final_status'])
