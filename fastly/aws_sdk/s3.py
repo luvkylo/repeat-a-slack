@@ -241,10 +241,11 @@ class S3:
                                         jsonObj[objKey] = [''] * (emptyLog - 1)
                                         jsonObj[objKey].append(obj[objKey])
 
-                            if "client_request" not in jsonObj:
-                                jsonObj["client_request"] = [''] * emptyLog
                         except:
                             print(line)
+
+            if "client_request" not in jsonObj:
+                jsonObj["client_request"] = [''] * emptyLog
 
             # **
             # if len(channel2) > 0:
