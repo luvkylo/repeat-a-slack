@@ -240,7 +240,6 @@ class S3:
                                     else:
                                         jsonObj[objKey] = [''] * (emptyLog - 1)
                                         jsonObj[objKey].append(obj[objKey])
-
                         except:
                             print(line)
 
