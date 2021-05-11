@@ -96,8 +96,10 @@ class ETLPandasService:
 
             # rearranging the column order
             cols = self.df.columns.tolist()
-            cols = cols[0:8] + cols[11:13] + \
-                cols[10:11] + cols[13:] + cols[8:9]
+            cols = ["timestamps", "status", "channel_id", "distributor", "city", "country", "region", "continent", "minutes_watched", "channel_start",
+                    "request_size_bytes", "request_count", "count_720p", "count_1080p", "between_720p_and_1080p_count", "under_720p_count", "over_1080p_count", "debug_url"]
+            # cols = cols[0:8] + cols[11:13] + \
+            #     cols[10:11] + cols[13:] + cols[8:9]
 
             self.df = self.df[cols]
 
