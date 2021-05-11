@@ -240,6 +240,9 @@ class S3:
                                     else:
                                         jsonObj[objKey] = [''] * (emptyLog - 1)
                                         jsonObj[objKey].append(obj[objKey])
+
+                            if "client_request" not in jsonObj:
+                                jsonObj["client_request"] = [''] * emptyLog
                         except:
                             print(line)
 
