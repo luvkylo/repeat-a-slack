@@ -188,6 +188,15 @@ class S3:
                 print("Bucket does not exist:", bucket)
                 raise ValueError(err)
 
+    def flat_keys(self, obj):
+        keys = []
+        for k, v in obj.items():
+            if type(v) is dict:
+                keys = keys + self.flat_keys(v)
+            else:
+                keys.append(k)
+        return keys
+
     def getDataframeObject(self, keyList='', bucket='', gmt=''):
         if (bucket == ''):
             raise KeyError('Missing bucket name!')
@@ -240,6 +249,9 @@ class S3:
                                     else:
                                         jsonObj[objKey] = [''] * (emptyLog - 1)
                                         jsonObj[objKey].append(obj[objKey])
+                            for key in jsonObj.keys():
+                                if key not in self.flat_keys(obj):
+                                    jsonObj[key].append('')
                         except:
                             print(line)
 
