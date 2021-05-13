@@ -13,14 +13,16 @@ class ETLPandasService:
         return self.df
 
     def regex_substring_count(self, regex, x, exception=False):
-        if re.search(regex, x):
-            if exception and not re.search(r"playlist_webvtt\.m3u8", x):
-                return 1
+        if exception and re.search(r"playlist_webvtt\.m3u8", x):
             return 0
+        if re.search(regex, x):
+            return 1
         return 0
 
     def inverse_regex_substring_count(self, regex1, regex2, x):
-        if re.search(regex1, x) and not self.mutiple_regex_condition([regex2, r"playlist_webvtt\.m3u8"], x):
+        if re.search(r"playlist_webvtt\.m3u8", x):
+            return 0
+        if re.search(regex1, x) and not re.search(regex2, x):
             return 1
         return 0
 
@@ -81,7 +83,7 @@ class ETLPandasService:
             self.df['distributor'] = self.df['url'].apply(
                 lambda x: (self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, group=1) + '-' + self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, group=2).title().replace("-", "_")))
             self.df['minutes_watched'] = self.df['url'].apply(
-                lambda x: self.regex_substring_count(r"(playlist.+\.m3u8)|(chunklist.*\.m3u8)|(\d+.m3u8)", x, exception=True)).astype('int')*6/60
+                lambda x: self.regex_substring_count(r"(playlist.+\.m3u8)|(chunklist.*\.m3u8)|(\d+\.m3u8)", x, exception=True)).astype('int')*6/60
             self.df['channel_start'] = self.df['url'].apply(
                 lambda x: self.inverse_regex_substring_count(r".+\.m3u8", r"(chunklist.*)\.m3u8|(playlist.+)\.m3u8|\d+\.m3u8", x)).astype('int')
             self.df['count'] = 1
