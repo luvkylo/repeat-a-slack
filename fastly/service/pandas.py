@@ -54,7 +54,9 @@ class ETLPandasService:
 
             print("Cleaning up the data...")
             # update all empty string to NaN
-            self.df = self.df.replace(r'^\s*$', np.nan, regex=True)
+            col = ["timestamp", "client_ip", "initial_status", "final_status", "user_agent", "city",
+                   "country", "continent", "region", "response_header_size", "response_body_size", "client_request", "DNT"]
+            self.df[col] = self.df[col].replace(r'^\s*$', np.nan, regex=True)
 
             # update column type in dataframe
             updateArr = ['initial_status', 'final_status',
