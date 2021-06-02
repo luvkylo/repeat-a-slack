@@ -16,6 +16,11 @@ class S3:
         self.s3Client = boto3.client('s3')
         self.keylist = []
 
+    def match(self, regex, x, group=1):
+        if re.search(regex, x):
+            return re.search(regex, x).group(group)
+        return ''
+
     def getlist(self, bucket='', prefix='', marker='', gmt=''):
         if (bucket == ''):
             raise KeyError('Missing bucket name!')
@@ -137,14 +142,17 @@ class S3:
         else:
             df = pd.DataFrame.from_dict(jsonObj)
             df = df.drop(columns=['client_ip'])
+            df['channel_id'] = df['url'].apply(
+                lambda x: self.match(r"\/(\d+)\/", x))
 
             start = time.gmtime(time.time())
 
-            uniqueChannelId = df.channel_id.unique()
+            uniqueChannelId = df['channel_id'].unique()
 
             for id in uniqueChannelId:
 
-                tempDf = df[(df.channel_id == id)]
+                tempDf = df[(df['channel_id'] == id)]
+                tempDf = tempDf.drop(columns=['channel_id'])
 
                 directory = dirname(abspath(__file__))
                 filename = keyList[0].split('/')[-4] + keyList[0].split(
