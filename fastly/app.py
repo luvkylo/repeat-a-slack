@@ -19,7 +19,7 @@ def main():
     S3 = s3.S3()
 
     if env_var.cores:
-        ray.init(num_cpus=env_var.cores)
+        ray.init(num_cpus=int(env_var.cores))
     else:
         ray.init()
 
