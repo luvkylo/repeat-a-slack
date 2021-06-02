@@ -140,11 +140,11 @@ class S3:
 
             start = time.gmtime(time.time())
 
-            uniqueChannelId = df.channel_id.unique()
+            uniqueChannelId = df['channel_id'].unique()
 
             for id in uniqueChannelId:
 
-                tempDf = df[(df.channel_id == id)]
+                tempDf = df[(df['channel_id'] == id)]
 
                 directory = dirname(abspath(__file__))
                 filename = keyList[0].split('/')[-4] + keyList[0].split(
