@@ -1,6 +1,7 @@
 import json
 import time
 import sys
+import ray
 
 from service import env
 from service import pandas
@@ -16,6 +17,11 @@ def main():
 
     env_var = env.Env()
     S3 = s3.S3()
+
+    if env_var.cores:
+        ray.init(num_cpus=env_var.cores)
+    else:
+        ray.init()
 
     print("************************************************************")
 
@@ -82,6 +88,7 @@ def main():
         redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, debug_url, client_request) VALUES " + args_str)
 
     redshift.closeEverything()
+    ray.shutdown()
 
     print("************************************************************")
     print("Removing processed log files...")
