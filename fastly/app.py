@@ -18,15 +18,16 @@ def main():
     env_var = env.Env()
     S3 = s3.S3()
 
-    # if env_var.cores and env_var.obj_mem:
-    #     ray.init(num_cpus=int(env_var.cores), object_store_memory=(
-    #         int(env_var.obj_mem)*(1024**3)))
-    # elif env_var.obj_mem:
-    #     ray.init(object_store_memory=(int(env_var.obj_mem)*(1024**3)))
-    # elif env_var.cores:
-    #     ray.init(num_cpus=int(env_var.cores))
-    # else:
-    #     ray.init()
+    if env_var.multicore:
+        if env_var.cores and env_var.obj_mem:
+            ray.init(num_cpus=int(env_var.cores), object_store_memory=(
+                int(env_var.obj_mem)*(1024**3)))
+        elif env_var.obj_mem:
+            ray.init(object_store_memory=(int(env_var.obj_mem)*(1024**3)))
+        elif env_var.cores:
+            ray.init(num_cpus=int(env_var.cores))
+        else:
+            ray.init()
 
     print("************************************************************")
 
@@ -93,7 +94,8 @@ def main():
         redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, debug_url, client_request) VALUES " + args_str)
 
     redshift.closeEverything()
-    # ray.shutdown()
+    if env_var.multicore:
+        ray.shutdown()
 
     print("************************************************************")
     print("Removing processed log files...")
