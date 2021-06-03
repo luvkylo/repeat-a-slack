@@ -30,3 +30,4 @@ class Env:
         self.timer_start = os.getenv('TIMER_START')
         self.cores = os.getenv('CORES')
         self.obj_mem = os.getenv('OBJ_MEM')
+        self.multicore = os.getenv('MULTICORE_PROC')

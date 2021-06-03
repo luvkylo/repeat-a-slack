@@ -1,8 +1,15 @@
 import re
 
-import modin.pandas as pd
+from service import env
 import numpy as np
 import datetime
+
+env_var = env.Env()
+
+if env_var.multicore:
+    import modin.pandas as pd
+else:
+    import pandas as pd
 
 
 class ETLPandasService:
@@ -108,7 +115,8 @@ class ETLPandasService:
             self.df = self.df.drop(columns=['response_header_size', 'response_body_size',
                                             'url', 'initial_status', 'final_status'])
 
-            self.df = self.df._to_pandas()
+            if env_var.multicore:
+                self.df = self.df._to_pandas()
 
             print("Performing ETL...")
             # create aggregated dataframe
