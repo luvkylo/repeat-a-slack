@@ -28,3 +28,4 @@ class Env:
         self.x_frequency_deviceid = os.getenv('X_FREQUENCY_DEVICEID')
         self.x_frequency_auth = os.getenv('X_FREQUENCY_AUTH')
         self.timer_start = os.getenv('TIMER_START')
+        self.cores = os.getenv('CORES')
