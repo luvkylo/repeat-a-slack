@@ -18,7 +18,12 @@ def main():
     env_var = env.Env()
     S3 = s3.S3()
 
-    if env_var.cores:
+    if env_var.cores and env_var.obj_mem:
+        ray.init(num_cpus=int(env_var.cores), object_store_memory=(
+            int(env_var.obj_mem)*(1024**3)))
+    elif env_var.obj_mem:
+        ray.init(object_store_memory=(int(env_var.obj_mem)*(1024**3)))
+    elif env_var.cores:
         ray.init(num_cpus=int(env_var.cores))
     else:
         ray.init()
