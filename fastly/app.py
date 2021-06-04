@@ -94,7 +94,7 @@ def main():
         redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, debug_url, client_request) VALUES " + args_str)
 
     redshift.closeEverything()
-    if env_var.multicore:
+    if env_var.multicore and env_var.multicore == 'True':
         ray.shutdown()
 
     print("************************************************************")
