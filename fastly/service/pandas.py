@@ -1,8 +1,15 @@
 import re
 
-import pandas as pd
+from service import env
 import numpy as np
 import datetime
+
+env_var = env.Env()
+
+if env_var.multicore and env_var.multicore == 'True':
+    import modin.pandas as pd
+else:
+    import pandas as pd
 
 
 class ETLPandasService:
@@ -59,7 +66,7 @@ class ETLPandasService:
             self.df[col] = self.df[col].replace(r'^\s*$', np.nan, regex=True)
 
             # update column type in dataframe
-            updateArr = ['initial_status', 'final_status',
+            updateArr = ['initial_status',
                          'response_header_size', 'response_body_size']
 
             for column in self.df.columns:
@@ -108,7 +115,8 @@ class ETLPandasService:
             self.df = self.df.drop(columns=['response_header_size', 'response_body_size',
                                             'url', 'initial_status', 'final_status'])
 
-            # self.df = self.df._to_pandas()
+            if env_var.multicore and env_var.multicore == 'True':
+                self.df = self.df._to_pandas()
 
             print("Performing ETL...")
             # create aggregated dataframe
