@@ -18,7 +18,7 @@ def main():
     env_var = env.Env()
     S3 = s3.S3()
 
-    if env_var.multicore:
+    if env_var.multicore and env_var.multicore == 'True':
         if env_var.cores and env_var.obj_mem:
             ray.init(num_cpus=int(env_var.cores), object_store_memory=(
                 int(env_var.obj_mem)*(1024**3)))
