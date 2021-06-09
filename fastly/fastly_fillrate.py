@@ -98,7 +98,7 @@ def main():
                     completed=completed, newCompleted=newCompleted, onePrior=onePrior, oneLater=oneLater)
             )
 
-            args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
+            args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
                                  for x in tuple(redshift1.returnResult()))
 
             args_str = args_str.decode(
@@ -114,10 +114,10 @@ def main():
                 else:
                     temp_str = args_str[0: index + 2].replace(",'',", ',NULL,')
                     args_str = args_str[index + 3:].replace(",'',", ',NULL,')
-                redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum) VALUES " + temp_str)
+                redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum, client_request) VALUES " + temp_str)
             if len(args_str) > 0:
                 args_str = args_str.replace(",'',", ',NULL,')
-                redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum) VALUES " + args_str)
+                redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum, client_request) VALUES " + args_str)
 
             print("Data ingested")
 
