@@ -95,7 +95,7 @@ def main():
                     completed=completed, newCompleted=newCompleted, onePrior=onePrior, oneLater=oneLater)
             )
 
-            args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
+            args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
                                  for x in tuple(redshift1.returnResult()))
 
             args_str = args_str.decode(
@@ -106,9 +106,9 @@ def main():
                 index = args_str.find(")", 15000000, 16000000)
                 temp_str = args_str[0: index + 1]
                 args_str = args_str[index + 2:]
-                redshift.execute("INSERT INTO fastly_log_with_video_and_schedule_metadata (id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_ranked, video_feed_channel_id, external_id, frequency_id, distributor, minutes_watched) VALUES " + temp_str)
+                redshift.execute("INSERT INTO fastly_log_with_video_and_schedule_metadata (id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_ranked, video_feed_channel_id, external_id, frequency_id, distributor, minutes_watched, client_request) VALUES " + temp_str)
             if len(args_str) > 0:
-                redshift.execute("INSERT INTO fastly_log_with_video_and_schedule_metadata (id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_ranked, video_feed_channel_id, external_id, frequency_id, distributor, minutes_watched) VALUES " + args_str)
+                redshift.execute("INSERT INTO fastly_log_with_video_and_schedule_metadata (id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_ranked, video_feed_channel_id, external_id, frequency_id, distributor, minutes_watched, client_request) VALUES " + args_str)
 
             print("Data ingested")
 
