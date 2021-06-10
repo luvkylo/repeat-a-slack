@@ -13,7 +13,7 @@ from db import query
 
 
 def main():
-    start = time.gmtime(time.time() - 10800)
+    start = time.gmtime(time.time() - 14400)
     # this is the query end time (i.e. this is 2020-10-28T01:00:00Z)
     # start = time.strptime("2021-03-05 00:00:00 +0000", "%Y-%m-%d %H:%M:%S %z")
     startStr = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
