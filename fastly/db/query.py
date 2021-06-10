@@ -326,7 +326,7 @@ class Queries:
                             logs.channel_id as id,
                             logs.distributor as distributor,
                             sum(logs.minutes_watched) as minutes_watched,
-                            logs.client_request as client_request,
+                            logs.client_request as client_request
                         FROM (
                             SELECT timestamps, CASE WHEN channel_id=' ' THEN NULL ELSE channel_id END as channel_id, upper(split_part(split_part(distributor,'-',2), '/', 1)) as distributor, sum(minutes_watched) as minutes_watched, client_request
                             FROM fastly_log_aggregated_metadata
