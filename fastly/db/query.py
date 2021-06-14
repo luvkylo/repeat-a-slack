@@ -326,7 +326,8 @@ class Queries:
                             logs.channel_id as id,
                             logs.distributor as distributor,
                             sum(logs.minutes_watched) as minutes_watched,
-                            logs.client_request as client_request
+                            logs.client_request as client_request,
+                            ROW_NUMBER() OVER (PARTITION BY timestamps, id, distributor ORDER BY client_request DESC) as ranked
                         FROM (
                             SELECT timestamps, CASE WHEN channel_id=' ' THEN NULL ELSE channel_id END as channel_id, upper(split_part(split_part(distributor,'-',2), '/', 1)) as distributor, sum(minutes_watched) as minutes_watched, client_request
                             FROM fastly_log_aggregated_metadata
@@ -340,7 +341,7 @@ class Queries:
                         FROM cwl_mediatailor_fillrate
                         WHERE query_date>='{time1}' and query_date<'{time2}'
                     ) as fill
-                    ON fill.query_date = a.timestamps and fill.channel_id=a.id and fill.distributor=a.distributor
+                    ON fill.query_date = a.timestamps and fill.channel_id=a.id and fill.distributor=a.distributor and a.ranked=1
                     LEFT JOIN (
                         WITH ld AS (
                             SELECT linear_channel_id::varchar, max("last_modified_date") AS latest 
