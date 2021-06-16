@@ -107,9 +107,10 @@ class Queries:
                 schedule.external_id as external_id,
                 schedule.frequency_id as frequency_id,
                 upper(split_part(split_part(logs.distributor,'-',2), '/', 1)) as distributor,
-                sum(logs.minutes_watched) as minutes_watched
+                sum(logs.minutes_watched) as minutes_watched,
+                logs.client_request as client_request
                 FROM (
-                SELECT timestamps, channel_id, distributor, minutes_watched
+                SELECT timestamps, channel_id, distributor, minutes_watched, client_request
                 FROM fastly_log_aggregated_metadata
                 WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='200' and status<'400'
                 ) as logs
@@ -178,7 +179,7 @@ class Queries:
                     WHERE ranked.ranked_num = 1
                 ) as channel
                 on channel.channel_id = schedule.video_feed_channel_id
-                GROUP BY id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_feed_channel_id, external_id, frequency_id, distributor
+                GROUP BY id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_feed_channel_id, external_id, frequency_id, distributor, client_request
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
 
     def checkScheduleID(self, schedule_id=''):
@@ -210,7 +211,7 @@ class Queries:
                     CASE WHEN sum(between_720p_and_1080p_count) IS NULL THEN 0 ELSE sum(between_720p_and_1080p_count) END as between_720p_and_1080p_count,
                     CASE WHEN sum(under_720p_count) IS NULL THEN 0 ELSE sum(under_720p_count) END as under_720p_count,
                     CASE WHEN sum(over_1080p_count) IS NULL THEN 0 ELSE sum(over_1080p_count) END as over_1080p_count,
-                    channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name
+                    channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name, client_request
                 FROM (
                     SELECT
                         DATE_TRUNC('hours', logs.timestamps) as timestamps,
@@ -237,7 +238,8 @@ class Queries:
                         schedule.linear_program_id as linear_program_id,
                         schedule.linear_program_title as linear_program_title,
                         schedule.linear_program_description as linear_program_description,
-                        CASE WHEN channel.title IS NULL THEN 'Unknown' ELSE channel.title END as channel_name
+                        CASE WHEN channel.title IS NULL THEN 'Unknown' ELSE channel.title END as channel_name,
+                        logs.client_request as client_request
                     FROM (
                         SELECT
                             timestamps,
@@ -255,10 +257,11 @@ class Queries:
                             sum(between_720p_and_1080p_count) as between_720p_and_1080p_count,
                             sum(under_720p_count) as under_720p_count,
                             sum(over_1080p_count) as over_1080p_count,
-                            channel_id
+                            channel_id,
+                            client_request
                         FROM fastly_log_aggregated_metadata
                         WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='200' and status<'400'
-                        GROUP BY timestamps, distributor, city, country, region, continent, channel_id
+                        GROUP BY timestamps, distributor, city, country, region, continent, channel_id, client_request
                     ) as logs
                     LEFT JOIN (
                         WITH ld AS (
@@ -280,7 +283,7 @@ class Queries:
                     ) as schedule
                     ON logs.timestamps >= schedule.schedule_start_time and logs.timestamps < schedule.schedule_end_time and logs.channel_id=schedule.linear_channel_id
                 )
-                GROUP BY timestamps, distributor, city, country, region, continent, channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name
+                GROUP BY timestamps, distributor, city, country, region, continent, channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name, client_request
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
 
     def fastlyLogWithLinearAndFillRateQuery(self, completed='', newCompleted='', onePrior='', oneLater=''):
@@ -304,7 +307,8 @@ class Queries:
                     agg.distributor as distributor,
                     sum(agg.filled_duration_sum) as filled_duration_sum,
                     sum(agg.origin_avail_duration_sum) as origin_avail_duration_sum,
-                    sum(agg.num_ads_sum) as num_ads_sum
+                    sum(agg.num_ads_sum) as num_ads_sum,
+                    agg.client_request as client_request
                 FROM (
                     SELECT 
                         CASE WHEN a.timestamps IS NULL THEN fill.query_date ELSE a.timestamps END as timestamps,
@@ -314,27 +318,30 @@ class Queries:
                         CASE WHEN a.distributor='' THEN fill.distributor ELSE a.distributor END as distributor,
                         sum(fill.filled_duration_sum)  as filled_duration_sum,
                         sum(fill.origin_avail_duration_sum) as origin_avail_duration_sum,
-                        sum(fill.num_ads_sum) as num_ads_sum
+                        sum(fill.num_ads_sum) as num_ads_sum,
+                        a.client_request as client_request
                     FROM (
                         SELECT 
                             logs.timestamps as timestamps,
                             logs.channel_id as id,
                             logs.distributor as distributor,
-                            sum(logs.minutes_watched) as minutes_watched
+                            sum(logs.minutes_watched) as minutes_watched,
+                            logs.client_request as client_request,
+                            ROW_NUMBER() OVER (PARTITION BY timestamps, id, distributor ORDER BY client_request DESC) as ranked
                         FROM (
-                            SELECT timestamps, CASE WHEN channel_id=' ' THEN NULL ELSE channel_id END as channel_id, upper(split_part(split_part(distributor,'-',2), '/', 1)) as distributor, sum(minutes_watched) as minutes_watched
+                            SELECT timestamps, CASE WHEN channel_id=' ' THEN NULL ELSE channel_id END as channel_id, upper(split_part(split_part(distributor,'-',2), '/', 1)) as distributor, sum(minutes_watched) as minutes_watched, client_request
                             FROM fastly_log_aggregated_metadata
                             WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='200' and status<'400'
-                            GROUP BY timestamps, channel_id, distributor
+                            GROUP BY timestamps, channel_id, distributor, client_request
                         ) as logs
-                        GROUP BY timestamps, channel_id, distributor
+                        GROUP BY timestamps, channel_id, distributor, client_request
                     ) as a
                     FULL JOIN (
                         SELECT query_date, (CASE WHEN regexp_substr(origin_id, '-(\\\\d+)-', 1, 1, 'e')='' THEN NULL ELSE regexp_substr(origin_id, '-(\\\\d+)-', 1, 1, 'e') END)::varchar as channel_id, split_part(origin_id,'-',4) as distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum
                         FROM cwl_mediatailor_fillrate
                         WHERE query_date>='{time1}' and query_date<'{time2}'
                     ) as fill
-                    ON fill.query_date = a.timestamps and fill.channel_id=a.id and fill.distributor=a.distributor
+                    ON fill.query_date = a.timestamps and fill.channel_id=a.id and fill.distributor=a.distributor and a.ranked=1
                     LEFT JOIN (
                         WITH ld AS (
                             SELECT linear_channel_id::varchar, max("last_modified_date") AS latest 
@@ -347,7 +354,7 @@ class Queries:
                         WHERE linear."last_modified_date" = ld.latest
                     ) as linear
                     on linear.linear_channel_id=a.id
-                    GROUP BY timestamps, fill.query_date, a.id, fill.channel_id, channel_name, a.distributor, fill.distributor
+                    GROUP BY timestamps, fill.query_date, a.id, fill.channel_id, channel_name, a.distributor, fill.distributor, a.client_request
                 ) as agg
                 LEFT JOIN (
                     SELECT DISTINCT linear_channel_id::varchar, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_title, linear_program_description
@@ -356,5 +363,5 @@ class Queries:
                     ORDER  BY schedule_start_time
                 ) as schedule
                 ON agg.timestamps >= schedule.schedule_start_time and agg.timestamps < schedule.schedule_end_time and agg.channel_id=schedule.linear_channel_id
-                GROUP BY timestamps, schedule.linear_channel_id, schedule_start_time, schedule_end_time, linear_program_title, channel_name, distributor, schedule_duration_ms, linear_program_description
+                GROUP BY timestamps, schedule.linear_channel_id, schedule_start_time, schedule_end_time, linear_program_title, channel_name, distributor, schedule_duration_ms, linear_program_description, client_request
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
