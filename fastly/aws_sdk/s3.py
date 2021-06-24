@@ -49,7 +49,11 @@ class S3:
                         timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
                     # log_las_modified_time = keyObj["LastModified"].timetuple()
                     if any([time.mktime(log_time) < time.mktime(gmt)]):
-                        self.keylist.append(keyObj["Key"])
+                        self.s3.Object(bucket, keyObj["Key"].replace(
+                            'logs/', 'logs/processing/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
+                        self.s3.Object(bucket, keyObj["Key"]).delete()
+                        self.keylist.append(keyObj["Key"].replace(
+                            'logs/', 'logs/processing/'))
 
         if response["IsTruncated"] == True:
             self.getlist(
