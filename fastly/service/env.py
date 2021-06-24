@@ -31,3 +31,4 @@ class Env:
         self.cores = os.getenv('CORES')
         self.obj_mem = os.getenv('OBJ_MEM')
         self.multicore = os.getenv('MULTICORE_PROC')
+        self.fastly_key = os.getenv('FASTLY_KEY')
