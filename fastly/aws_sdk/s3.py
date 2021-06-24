@@ -48,7 +48,7 @@ class S3:
                     log_time = time.strptime(
                         timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
                     # log_las_modified_time = keyObj["LastModified"].timetuple()
-                    if any([time.mktime(log_time) < time.mktime(gmt)]) and len(self.keylist) < 1:
+                    if any([time.mktime(log_time) < time.mktime(gmt)]):
                         self.s3.Object(bucket, keyObj["Key"].replace(
                             'logs/', 'logs/processing/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
                         self.s3.Object(bucket, keyObj["Key"]).delete()
