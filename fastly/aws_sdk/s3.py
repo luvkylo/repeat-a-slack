@@ -40,7 +40,7 @@ class S3:
         except botocore.exceptions.ClientError as error:
             raise error
 
-        prefix = time.strftime("%Y%m%d_00:00:00", gmt)
+        prefix = time.strftime("%Y%m%d_%H:%M:%S", gmt)
 
         if ("Contents" in response.keys()):
             for keyObj in response["Contents"]:
