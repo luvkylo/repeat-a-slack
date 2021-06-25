@@ -52,10 +52,10 @@ class S3:
                     # log_las_modified_time = keyObj["LastModified"].timetuple()
                     if any([time.mktime(log_time) < time.mktime(gmt)]):
                         self.s3.Object(bucket, keyObj["Key"].replace(
-                            'logs/', 'logs/processing/' + prefix + '/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
+                            'logs/', 'processing/' + prefix + '/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
                         self.s3.Object(bucket, keyObj["Key"]).delete()
                         self.keylist.append(keyObj["Key"].replace(
-                            'logs/', 'logs/processing/' + prefix + '/'))
+                            'logs/', 'processing/' + prefix + '/'))
 
         if response["IsTruncated"] == True:
             self.getlist(
