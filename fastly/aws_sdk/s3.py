@@ -44,7 +44,7 @@ class S3:
 
         if ("Contents" in response.keys()):
             for keyObj in response["Contents"]:
-                if '.log' in keyObj["Key"] and 'logs\\' in keyObj["Key"]:
+                if '.log' in keyObj["Key"]:
                     timestamp = re.search(
                         r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
                     log_time = time.strptime(
