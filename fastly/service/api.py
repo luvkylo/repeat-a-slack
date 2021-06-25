@@ -210,3 +210,46 @@ class APIrequests:
                         account_id=account_id, program_id=linear_program_id, freqID=freqID, freqAuth=freqAuth)
 
             return results
+
+    def getFastlyServiceList(self, fastlyKey='', fastlyUrl=''):
+        if (fastlyKey == ''):
+            raise KeyError('Missing Fastly Key Auth')
+        elif (fastlyUrl == ''):
+            raise KeyError('Missing Fastly URL')
+        else:
+            headers = {
+                'fastly-key': fastlyKey
+            }
+
+            response = self.s.get(url=fastlyUrl, headers=headers)
+
+            services = []
+
+            for service in response.json():
+                if re.search(r'(linear-)|(prd-)', service['name'].lower()) and not re.search(r'(qa-)|(test-)', service['name'].lower()):
+                    services.append(service['id'])
+
+            return services
+
+    def getFastlyServicesBandwidth(self, fastlyKey='', fastlyUrl='', fastlyServicesList=''):
+        if (fastlyKey == ''):
+            raise KeyError('Missing Fastly Key Auth')
+        elif (fastlyUrl == ''):
+            raise KeyError('Missing Fastly URL')
+        elif (fastlyServicesList == ''):
+            raise KeyError('Missing Fastly Servies List')
+        else:
+            headers = {
+                'fastly-key': fastlyKey
+            }
+
+            response = self.s.get(url=fastlyUrl, headers=headers)
+
+            total = 0
+
+            for serviceId in response.json()['data'].keys():
+                if serviceId in fastlyServicesList:
+                    total += response.json()[
+                        'data'][serviceId][0]['bandwidth']
+
+            return total
