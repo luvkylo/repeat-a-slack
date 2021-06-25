@@ -40,6 +40,8 @@ class S3:
         except botocore.exceptions.ClientError as error:
             raise error
 
+        prefix = time.strftime("%Y%m%d_00:00:00", gmt)
+
         if ("Contents" in response.keys()):
             for keyObj in response["Contents"]:
                 if '.log' in keyObj["Key"]:
@@ -50,10 +52,10 @@ class S3:
                     # log_las_modified_time = keyObj["LastModified"].timetuple()
                     if any([time.mktime(log_time) < time.mktime(gmt)]):
                         self.s3.Object(bucket, keyObj["Key"].replace(
-                            'logs/', 'logs/processing/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
+                            'logs/', 'logs/processing/' + prefix + '/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
                         self.s3.Object(bucket, keyObj["Key"]).delete()
                         self.keylist.append(keyObj["Key"].replace(
-                            'logs/', 'logs/processing/'))
+                            'logs/', 'logs/processing/' + prefix + '/'))
 
         if response["IsTruncated"] == True:
             self.getlist(
