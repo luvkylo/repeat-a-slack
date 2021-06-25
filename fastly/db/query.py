@@ -365,3 +365,18 @@ class Queries:
                 ON agg.timestamps >= schedule.schedule_start_time and agg.timestamps < schedule.schedule_end_time and agg.channel_id=schedule.linear_channel_id
                 GROUP BY timestamps, schedule.linear_channel_id, schedule_start_time, schedule_end_time, linear_program_title, channel_name, distributor, schedule_duration_ms, linear_program_description, client_request
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
+
+    def totalBandwidth(self, startStr='', endStr=''):
+        if (startStr == ''):
+            raise KeyError('Missing query start time!')
+        elif (endStr == ''):
+            raise KeyError('Missing query end time!')
+        elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2} \w{2}:\w{2}:\w{2}', [startStr, endStr])):
+            raise KeyError(
+                'Start time or end time does not match timestamp pattern, consider passing wrong param')
+        else:
+            return """
+                    SELECT sum(request_size_bytes) as total
+                    FROM fastly_log_aggregated_metadata
+                    WHERE timestamps>='{startStr}' and timestamps<'{endStr}'
+                """.format(startStr=startStr, endStr=endStr)
