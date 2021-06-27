@@ -104,7 +104,7 @@ def main():
             args_str = re.sub('\s+', ' ', args_str)
 
             while len(args_str) > 15000000:
-                index = args_str.find("')", 15000000, 16000000)
+                index = args_str.find("1)", 15000000, 16000000)
                 if index == -1:
                     index = args_str.find("NULL)", 15000000, 16000000)
                     temp_str = args_str[0: index + 5].replace(",'',", ',NULL,')
