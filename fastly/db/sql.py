@@ -20,10 +20,12 @@ class Redshift:
             self.database = database
             self.port = port
             self.cursor = self.connection.cursor()
-        except (e.ConnectionException, e.SqlclientUnableToEstablishSqlconnection, e.ConnectionDoesNotExist, e.ConnectionFailure) as err:
+        except psycopg2.OperationalError as err:
             print(
                 "Redshift Failed to connect, please check if your vpn is on and is set to correct region")
             raise ConnectionError(err)
+        except BaseException as err:
+            raise err
 
     def returnResult(self):
         return self.cursor.fetchall()

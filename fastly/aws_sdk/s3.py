@@ -42,28 +42,36 @@ class S3:
 
         prefix = time.strftime("%Y%m%d_%H:%M:%S", gmt)
 
-        if ("Contents" in response.keys()):
-            for keyObj in response["Contents"]:
-                if '.log' in keyObj["Key"]:
-                    timestamp = re.search(
-                        r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
-                    log_time = time.strptime(
-                        timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
-                    # log_las_modified_time = keyObj["LastModified"].timetuple()
-                    if any([time.mktime(log_time) < time.mktime(gmt)]):
-                        self.s3.Object(bucket, keyObj["Key"].replace(
-                            'logs/', 'processing/' + prefix + '/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
-                        self.s3.Object(bucket, keyObj["Key"]).delete()
-                        self.keylist.append(keyObj["Key"].replace(
-                            'logs/', 'processing/' + prefix + '/'))
+        try:
+            if ("Contents" in response.keys()):
+                for keyObj in response["Contents"]:
+                    if '.log' in keyObj["Key"]:
+                        timestamp = re.search(
+                            r"logs\/(\d{4}\/\d{2}\/\d{2}\/\d{2}:\d{2})", keyObj["Key"]).group(1)
+                        log_time = time.strptime(
+                            timestamp + " UTC", "%Y/%m/%d/%H:%M %Z")
+                        # log_las_modified_time = keyObj["LastModified"].timetuple()
+                        if any([time.mktime(log_time) < time.mktime(gmt)]):
+                            self.s3.Object(bucket, keyObj["Key"].replace(
+                                'logs/', 'processing/' + prefix + '/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
+                            self.s3.Object(bucket, keyObj["Key"]).delete()
+                            self.keylist.append(keyObj["Key"].replace(
+                                'logs/', 'processing/' + prefix + '/'))
 
-        if response["IsTruncated"] == True:
-            self.getlist(
-                bucket=bucket,
-                prefix=prefix,
-                marker=response["NextMarker"],
-                gmt=gmt
-            )
+            if response["IsTruncated"] == True:
+                self.getlist(
+                    bucket=bucket,
+                    prefix=prefix,
+                    marker=response["NextMarker"],
+                    gmt=gmt
+                )
+        except BaseException as e:
+            prefix = time.strftime("%Y%m%d_%H:%M:%S", gmt)
+
+            for key in self.keyList:
+                self.s3.Object(bucket, key.replace(
+                    'processing/' + prefix + '/', 'logs/')).copy_from(CopySource=bucket + '/' + key)
+                self.s3.Object(bucket, key).delete()
 
     def getKeyList(self):
         return self.keylist
