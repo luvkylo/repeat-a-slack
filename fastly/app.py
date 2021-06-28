@@ -51,51 +51,65 @@ def main():
     print("Last file process:", keyList[-1])
     print("Got All File Keys...")
     print("Downloading all Files now")
-    jsonObj = S3.getDataframeObject(
-        keyList=keyList,
-        bucket=env_var.s3_fastly_from_bucket_name,
-        gmt=gmt
-    )
 
-    print("Got All Files")
-    print("************************************************************")
+    try:
+        jsonObj = S3.getDataframeObject(
+            keyList=keyList,
+            bucket=env_var.s3_fastly_from_bucket_name,
+            gmt=gmt
+        )
 
-    pd = pandas.ETLPandasService()
-    pd.etl(jsonObj=jsonObj)
-    df = pd.getdf()
+        print("Got All Files")
+        print("************************************************************")
 
-    print("************************************************************")
-    print("Preparing data for Redshift ingestion...")
-    # convert dataframe to numpy array
-    np_data = df.to_numpy()
-    print(len(np_data))
+        pd = pandas.ETLPandasService()
+        pd.etl(jsonObj=jsonObj)
+        df = pd.getdf()
 
-    print("Connecting to Redshift...")
-    # connect to Redshift
-    redshift = sql.Redshift(
-        user=env_var.redshift_user,
-        password=env_var.redshift_pw,
-        host=env_var.redshift_host,
-        database=env_var.redshift_db,
-        port=env_var.redshift_port
-    )
+        print("************************************************************")
+        print("Preparing data for Redshift ingestion...")
+        # convert dataframe to numpy array
+        np_data = df.to_numpy()
+        print(len(np_data))
 
-    # set query string
-    args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
-                         for x in tuple(map(tuple, np_data)))
+        print("Connecting to Redshift...")
+        # connect to Redshift
+        redshift = sql.Redshift(
+            user=env_var.redshift_user,
+            password=env_var.redshift_pw,
+            host=env_var.redshift_host,
+            database=env_var.redshift_db,
+            port=env_var.redshift_port
+        )
 
-    args_str = args_str.decode("utf-8")
-    while len(args_str) > 15000000:
-        index = args_str.find(")", 15000000, 16000000)
-        temp_str = args_str[0: index + 1]
-        args_str = args_str[index + 2:]
-        redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, debug_url, client_request) VALUES " + temp_str)
-    if len(args_str) > 0:
-        redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, debug_url, client_request) VALUES " + args_str)
+        # set query string
+        args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
+                             for x in tuple(map(tuple, np_data)))
 
-    redshift.closeEverything()
-    if env_var.multicore and env_var.multicore == 'True':
-        ray.shutdown()
+        args_str = args_str.decode("utf-8")
+        while len(args_str) > 15000000:
+            index = args_str.find(")", 15000000, 16000000)
+            temp_str = args_str[0: index + 1]
+            args_str = args_str[index + 2:]
+            redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, debug_url, client_request) VALUES " + temp_str)
+        if len(args_str) > 0:
+            redshift.execute("INSERT INTO fastly_log_aggregated_metadata (timestamps, status, channel_id, distributor, city, country, region, continent, minutes_watched, channel_start, request_size_bytes, request_count, count_720p, count_1080p, between_720p_and_1080p_count, under_720p_count, over_1080p_count, debug_url, client_request) VALUES " + args_str)
+
+        redshift.closeEverything()
+        if env_var.multicore and env_var.multicore == 'True':
+            ray.shutdown()
+    except ConnectionError as e:
+        returnUnprocessedFiles(S3=S3, gmt=gmt, keyList=keyList,
+                               from_bucket_name=env_var.s3_fastly_from_bucket_name)
+        raise e
+    except BaseException as e:
+        if 'redshift' in locals():
+            redshift.connection.rollback()
+            redshift.closeEverything()
+
+        returnUnprocessedFiles(S3=S3, gmt=gmt, keyList=keyList,
+                               from_bucket_name=env_var.s3_fastly_from_bucket_name)
+        raise e
 
     print("************************************************************")
     print("Removing processed log files...")
@@ -112,6 +126,16 @@ def main():
     end = time.time()
     print('Script ends at', end)
     print('Total Elapsed time:', end - start)
+
+
+def returnUnprocessedFiles(S3, gmt, keyList, from_bucket_name):
+    print("\nReturning unprocessed data file")
+    prefix = time.strftime("%Y%m%d_%H:%M:%S", gmt)
+
+    for key in keyList:
+        S3.s3.Object(from_bucket_name, key.replace(
+            'processing/' + prefix + '/', 'logs/')).copy_from(CopySource=from_bucket_name + '/' + key)
+        S3.s3.Object(from_bucket_name, key).delete()
 
 
 if __name__ == '__main__':
