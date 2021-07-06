@@ -78,8 +78,8 @@ def main():
             redshiftTotalBandwidth = redshift.returnResult()
 
             if abs((int(totalBandwidth) - int(redshiftTotalBandwidth[0][0])) / int(totalBandwidth)) > 0.005:
-                raise KeyError('Record exceed tolorent: fastly ' +
-                               totalBandwidth + ' & Redshift ' + redshiftTotalBandwidth[0][0])
+                raise KeyError('Record exceed tolorent: fastly {fastly:.2f} GB & Redshift {r:.2f} GB'.format(
+                    fastly=(int(totalBandwidth)/1000000000), r=(int(redshiftTotalBandwidth[0][0])/1000000000)))
             print('Fastly Bandwidth: {:.2f} GB'.format(
                 (int(totalBandwidth)/1000000000)))
             print('Redshift  Bandwidth: {:.2f} GB'.format(

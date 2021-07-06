@@ -145,6 +145,7 @@ function request(url, headers, obj) {
         }
       })
       .catch((err) => {
+        console.log(err);
         const matches = url.match(/external_identifier=([^\&]*)/);
         let crid = null;
         if (matches[1]) {
@@ -232,6 +233,7 @@ function processRequests(objects, callback) {
       .catch((e) => {
         closeEverything();
         util.log('[ERROR]', e.message);
+        throw new Error(e);
       });
 
     return;
