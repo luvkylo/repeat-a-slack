@@ -33,7 +33,7 @@ def main():
 
     # get a list existing logs
     if (env_var.timer_start is None):
-        gmt = time.gmtime(start - 7200)
+        gmt = time.gmtime(start - 3600)
     else:
         gmt = time.gmtime(start - int(env_var.timer_start))
     print("Getting the list of files to process...")
