@@ -166,7 +166,7 @@ class Queries:
                     JOIN ld ON ld.linear_channel_id = linear.linear_channel_id
                     WHERE linear."last_modified_date" = ld.latest
                 ) as linear
-                on linear.linear_channel_id=schedule.channel_id
+                on linear.linear_channel_id=logs.channel_id
                 LEFT JOIN (
                     SELECT channel_title, channel_id
                     FROM (
