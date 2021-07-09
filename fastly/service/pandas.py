@@ -33,6 +33,13 @@ class ETLPandasService:
             return 1
         return 0
 
+    def minutes_watched_calc(self, url, status):
+        num = self.regex_substring_count(r"\.ts", url)
+        if status == 206:
+            return num * (1.5/60)
+        else:
+            return num * (6/60)
+
     def match(self, regex, x, group=1):
         if re.search(regex, x):
             return re.search(regex, x).group(group)
@@ -91,8 +98,10 @@ class ETLPandasService:
                 lambda x: self.match(r"\/(\d+)\/", x))
             self.df['distributor'] = self.df['url'].apply(
                 lambda x: (self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, group=1) + '-' + self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, group=2).title().replace("-", "_")))
-            self.df['minutes_watched'] = self.df['url'].apply(
-                lambda x: self.regex_substring_count(r"\.ts", x)).astype('int')*6/60
+            # self.df['minutes_watched'] = self.df['url'].apply(
+            #     lambda x: self.regex_substring_count(r"\.ts", x)).astype('int')*6/60
+            self.df['minutes_watched'] = self.df.apply(
+                lambda x: self.minutes_watched_calc(x["url"], x["status"]), axis=1)
             self.df['channel_start'] = self.df['url'].apply(
                 lambda x: self.inverse_regex_substring_count(r".+\.m3u8", r"(chunklist.*)\.m3u8|(playlist.+)\.m3u8|\d+\.m3u8", x)).astype('int')
             self.df['count'] = 1
