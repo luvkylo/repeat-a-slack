@@ -143,10 +143,10 @@ def main():
             print("Connection closed")
             # raise KeyError("No new query")
     except:
-        # redshift.execute(queries.errorLog(
-        #     hashed_id=hashed_id, error=str(sys.exc_info()[1]), job_name='origin_bandwidth'))
+        redshift.execute(queries.errorLog(
+            hashed_id=hashed_id, error=str(sys.exc_info()[1]), job_name='origin_bandwidth'))
 
-        # redshift.closeEverything()
+        redshift.closeEverything()
 
         raise sys.exc_info()[0]
 
