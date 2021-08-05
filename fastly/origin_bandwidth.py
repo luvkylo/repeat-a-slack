@@ -103,7 +103,7 @@ def main():
             )
 
             if len(insertValues) == 0:
-                print("All data processed")
+                print("All data processed, no need to run queries")
             else:
 
                 print("Processed", str(len(insertValues)), "line items")
