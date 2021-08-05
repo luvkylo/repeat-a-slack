@@ -102,26 +102,32 @@ def main():
                 productList=env_var.product_list.split(",")
             )
 
-            args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
-                                 for x in tuple(insertValues))
+            if len(insertValues) == 0:
+                print("All data processed, no need to run queries")
+            else:
 
-            args_str = args_str.decode(
-                "utf-8").replace('::timestamp', '').replace('"', '\\"').replace('“', '\\"').replace('”', '\\"')
-            args_str = re.sub('\s+', ' ', args_str)
+                print("Processed", str(len(insertValues)), "line items")
 
-            print("Writting the results into the database...")
+                args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
+                                     for x in tuple(insertValues))
 
-            while len(args_str) > 15000000:
-                index = args_str.find(")", 15000000, 16000000)
-                temp_str = args_str[0: index + 1]
-                args_str = args_str[index + 2:]
-                redshift.execute(
-                    "INSERT INTO aws_origin_bandwidth (timestamps, channel_id, account_id, billable_party, distributor, aws_product_name, aws_product_description, usage_quantity, cost) VALUES " + temp_str)
-            if len(args_str) > 0:
-                redshift.execute(
-                    "INSERT INTO aws_origin_bandwidth (timestamps, channel_id, account_id, billable_party, distributor, aws_product_name, aws_product_description, usage_quantity, cost) VALUES " + args_str)
+                args_str = args_str.decode(
+                    "utf-8").replace('::timestamp', '').replace('"', '\\"').replace('“', '\\"').replace('”', '\\"')
+                args_str = re.sub('\s+', ' ', args_str)
 
-            print("Data ingested")
+                print("Writting the results into the database...")
+
+                while len(args_str) > 15000000:
+                    index = args_str.find(")", 15000000, 16000000)
+                    temp_str = args_str[0: index + 1]
+                    args_str = args_str[index + 2:]
+                    redshift.execute(
+                        "INSERT INTO aws_origin_bandwidth (timestamps, channel_id, account_id, billable_party, distributor, aws_product_name, aws_product_description, usage_quantity, cost) VALUES " + temp_str)
+                if len(args_str) > 0:
+                    redshift.execute(
+                        "INSERT INTO aws_origin_bandwidth (timestamps, channel_id, account_id, billable_party, distributor, aws_product_name, aws_product_description, usage_quantity, cost) VALUES " + args_str)
+
+                print("Data ingested")
 
             print("************************************************************")
 
