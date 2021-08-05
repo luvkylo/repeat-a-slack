@@ -381,12 +381,15 @@ class S3:
                                 "%Y-%m-%dT%H:%M:%SZ", log_time)
                             billingId = rawLine[0].split(":")
                             if len(billingId) < 3:
-                                continue
+                                channelId = 'untagged'
+                                accountId = 'untagged'
+                                billableParty = 'untagged'
+                            else:
+                                channelId = billingId[0]
+                                accountId = billingId[1]
+                                billableParty = billingId[2]
 
-                            channelId = billingId[0]
-                            accountId = billingId[1]
-                            billableParty = billingId[2]
-                            if len(billingId) == 3:
+                            if len(billingId) < 4:
                                 distributor = ''
                             elif len(billingId) == 4:
                                 distributor = billingId[3]
