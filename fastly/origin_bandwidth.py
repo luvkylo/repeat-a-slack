@@ -102,6 +102,8 @@ def main():
                 productList=env_var.product_list.split(",")
             )
 
+            print("Processed", str(len(insertValues)), "line items")
+
             args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
                                  for x in tuple(insertValues))
 
