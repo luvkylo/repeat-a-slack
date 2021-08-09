@@ -103,12 +103,13 @@ def main():
                                from_bucket_name=env_var.s3_fastly_from_bucket_name)
         raise e
     except BaseException as e:
+        returnUnprocessedFiles(S3=S3, gmt=gmt, keyList=keyList,
+                               from_bucket_name=env_var.s3_fastly_from_bucket_name)
+
         if 'redshift' in locals():
             redshift.connection.rollback()
             redshift.closeEverything()
 
-        returnUnprocessedFiles(S3=S3, gmt=gmt, keyList=keyList,
-                               from_bucket_name=env_var.s3_fastly_from_bucket_name)
         raise e
 
     print("************************************************************")

@@ -4,7 +4,9 @@ import json
 import re
 import time
 import os
+import gzip
 from os.path import dirname, abspath
+from datetime import datetime
 
 import pandas as pd
 
@@ -40,7 +42,7 @@ class S3:
         except botocore.exceptions.ClientError as error:
             raise error
 
-        prefix = time.strftime("%Y%m%d_%H:%M:%S", gmt)
+        processingPrefix = time.strftime("%Y%m%d_%H:%M:%S", gmt)
 
         try:
             if ("Contents" in response.keys()):
@@ -53,10 +55,10 @@ class S3:
                         # log_las_modified_time = keyObj["LastModified"].timetuple()
                         if any([time.mktime(log_time) < time.mktime(gmt)]):
                             self.s3.Object(bucket, keyObj["Key"].replace(
-                                'logs/', 'processing/' + prefix + '/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
+                                'logs/', 'processing/' + processingPrefix + '/')).copy_from(CopySource=bucket + '/' + keyObj["Key"])
                             self.s3.Object(bucket, keyObj["Key"]).delete()
                             self.keylist.append(keyObj["Key"].replace(
-                                'logs/', 'processing/' + prefix + '/'))
+                                'logs/', 'processing/' + processingPrefix + '/'))
 
             if response["IsTruncated"] == True:
                 self.getlist(
@@ -66,11 +68,11 @@ class S3:
                     gmt=gmt
                 )
         except BaseException as e:
-            prefix = time.strftime("%Y%m%d_%H:%M:%S", gmt)
+            processingPrefix = time.strftime("%Y%m%d_%H:%M:%S", gmt)
 
             for key in self.keyList:
                 self.s3.Object(bucket, key.replace(
-                    'processing/' + prefix + '/', 'logs/')).copy_from(CopySource=bucket + '/' + key)
+                    'processing/' + processingPrefix + '/', 'logs/')).copy_from(CopySource=bucket + '/' + key)
                 self.s3.Object(bucket, key).delete()
 
     def getKeyList(self):
@@ -299,3 +301,104 @@ class S3:
             #     self.putStrObject('prd-freq-report-data-fr', 'fastly_log/59/' +
             #                       time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel59))
             return jsonObj
+
+    def getOriginBandwidthFilelist(self, bucket='', prefix='', marker='', gmt=''):
+        if (bucket == ''):
+            raise KeyError('Missing bucket name!')
+        if (gmt == ''):
+            raise KeyError('Missing UTC timestamp!')
+        if (prefix != '' and prefix[-1] != '/'):
+            prefix = prefix + '/'
+
+        try:
+            response = self.s3Client.list_objects(
+                Bucket=bucket,
+                Prefix=prefix,
+                Marker=marker,
+                Delimiter='?',
+                MaxKeys=1000
+            )
+        except botocore.exceptions.ClientError as error:
+            raise error
+
+        # d = datetime.fromtimestamp(time.mktime(gmt))
+        # month = str(d.month) if d.month >= 10 else '0' + str(d.month)
+        # fileTime = str(d.year) + '-' + month
+
+        if ("Contents" in response.keys()):
+            for keyObj in response["Contents"]:
+                if 'Frequency-Tag-BillingId' in keyObj["Key"]:
+                    timestamp = re.search(
+                        r"Frequency-Tag-BillingId-(\d{4}-\d{2})", keyObj["Key"]).group(1)
+                    log_time = time.strptime(
+                        timestamp + "-01 00:00 UTC", "%Y-%m-%d %H:%M %Z")
+                    if any([time.mktime(log_time) >= time.mktime(gmt)]):
+                        self.keylist.append(keyObj["Key"])
+
+        if response["IsTruncated"] == True:
+            self.getlist(
+                bucket=bucket,
+                prefix=prefix,
+                marker=response["NextMarker"],
+                gmt=gmt
+            )
+
+    def getOriginBandwidthObject(self, keyList='', bucket='', t='', productList=''):
+        if (bucket == ''):
+            raise KeyError('Missing bucket name!')
+        elif (keyList == ''):
+            raise KeyError('Missing list of S3 Keys!')
+        else:
+            result = []
+
+            # for each log file in s3, download it
+            for key in keyList:
+                body = self.getObject(
+                    bucket=bucket,
+                    key=key
+                )
+
+                with gzip.GzipFile(fileobj=body) as gzipfile:
+                    content = gzipfile.read()
+
+                i = 0
+
+                for line in content.decode(encoding="utf-8", errors="backslashreplace").splitlines():
+                    i += 1
+                    if i > 1:
+
+                        rawLine = line.split(",")
+                        itemDescription = rawLine[3]
+                        productName = rawLine[1]
+                        dateList = rawLine[-3:]
+                        dateList.reverse()
+
+                        log_time = time.strptime(
+                            '-'.join(dateList) + " 00:00 UTC", "%Y-%m-%d %H:%M %Z")
+
+                        if productName in productList and 'data transfer out' in itemDescription.lower() and time.mktime(log_time) >= time.mktime(t):
+                            timestamps = time.strftime(
+                                "%Y-%m-%dT%H:%M:%SZ", log_time)
+                            billingId = rawLine[0].split(":")
+                            if len(billingId) < 3:
+                                channelId = 'untagged'
+                                accountId = 'untagged'
+                                billableParty = 'untagged'
+                            else:
+                                channelId = billingId[0]
+                                accountId = billingId[1]
+                                billableParty = billingId[2]
+
+                            if len(billingId) < 4:
+                                distributor = ''
+                            elif len(billingId) == 4:
+                                distributor = billingId[3]
+                            usageQuantity = str(round(float(rawLine[4]), 2))
+                            cost = str(round(float(rawLine[5]), 6))
+
+                            lineItem = (timestamps, channelId, accountId, billableParty,
+                                        distributor, productName, itemDescription, usageQuantity, cost)
+                            result.append(lineItem)
+
+            # get [["sda", asd], ["asdas", asdas]]
+            return result
