@@ -25,6 +25,10 @@ class Env:
             'S3_FASTLY_LOGS_FROM_PREFIX')
         self.s3_to_bucket_name = os.getenv('S3_TO_BUCKET_NAME')
         self.s3_fastly_logs_to_prefix = os.getenv('S3_FASTLY_LOGS_TO_PREFIX')
+        self.s3_origin_bandwidth_from_bucket_name = os.getenv(
+            'S3_ORIGIN_BANDWIDTH_FROM_BUCKET_NAME')
+        self.s3_origin_bandwidth_from_bucket_prefix = os.getenv(
+            'S3_ORIGIN_BANDWIDTH_FROM_BUCKET_PREFIX')
         self.x_frequency_deviceid = os.getenv('X_FREQUENCY_DEVICEID')
         self.x_frequency_auth = os.getenv('X_FREQUENCY_AUTH')
         self.timer_start = os.getenv('TIMER_START')
@@ -32,3 +36,4 @@ class Env:
         self.obj_mem = os.getenv('OBJ_MEM')
         self.multicore = os.getenv('MULTICORE_PROC')
         self.fastly_key = os.getenv('FASTLY_KEY')
+        self.product_list = os.getenv('PRODUCT_LIST')
