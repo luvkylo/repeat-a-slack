@@ -108,12 +108,27 @@ def main():
 
                 print("Processed", str(len(insertValues)), "line items")
 
+                earliest_date = time.strptime(
+                    "2999-01-01T00:00:00Z", "%Y-%m-%dT%H:%M:%SZ")
+                e_formate_date = ''
+                # time.mktime(log_time) >= time.mktime(gmt)
+                for ele in insertValues:
+                    temp_date = time.strptime(ele[0], "%Y-%m-%dT%H:%M:%SZ")
+                    if (time.mktime(temp_date) < time.mktime(earliest_date)):
+                        earliest_date = temp_date
+                        e_formate_date = ele[0]
+
                 args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
                                      for x in tuple(insertValues))
 
                 args_str = args_str.decode(
                     "utf-8").replace('::timestamp', '').replace('"', '\\"').replace('“', '\\"').replace('”', '\\"')
                 args_str = re.sub('\s+', ' ', args_str)
+
+                if (time.mktime(earliest_date) < time.mktime(time.strptime("2999-01-01T00:00:00Z", "%Y-%m-%dT%H:%M:%SZ"))):
+                    print("Deleting old data...")
+                    redshift.execute(
+                        "DELETE FROM aws_origin_bandwidth WHERE timestamps>='" + e_formate_date + "';")
 
                 print("Writting the results into the database...")
 
