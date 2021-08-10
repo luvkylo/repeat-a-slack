@@ -376,7 +376,7 @@ class S3:
                         log_time = time.strptime(
                             '-'.join(dateList) + " 00:00 UTC", "%Y-%m-%d %H:%M %Z")
 
-                        if productName in productList and 'data transfer out' in itemDescription.lower() and time.mktime(log_time) >= time.mktime(t):
+                        if productName in productList and 'data transfer out' in itemDescription.lower():
                             timestamps = time.strftime(
                                 "%Y-%m-%dT%H:%M:%SZ", log_time)
                             billingId = rawLine[0].split(":")
