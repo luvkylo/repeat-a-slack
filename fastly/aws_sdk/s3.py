@@ -376,7 +376,13 @@ class S3:
                         log_time = time.strptime(
                             '-'.join(dateList) + " 00:00 UTC", "%Y-%m-%d %H:%M %Z")
 
-                        if productName in productList and 'data transfer out' in itemDescription.lower():
+                        conditions = [
+                            productName in productList and 'data transfer out' in itemDescription.lower(),
+                            productName == 'AWS Elemental MediaConnect' and rawLine[
+                                2] == 'Data Transfer: Transfer' and 'outbound' in itemDescription.lower()
+                        ]
+
+                        if any(conditions):
                             timestamps = time.strftime(
                                 "%Y-%m-%dT%H:%M:%SZ", log_time)
                             billingId = rawLine[0].split(":")
