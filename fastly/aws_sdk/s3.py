@@ -383,7 +383,6 @@ class S3:
                         ]
 
                         if any(conditions):
-                            # mediaConnect, Data Transfer: Transfer, has "outbound"
                             timestamps = time.strftime(
                                 "%Y-%m-%dT%H:%M:%SZ", log_time)
                             billingId = rawLine[0].split(":")
