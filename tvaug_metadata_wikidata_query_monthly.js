@@ -42,8 +42,8 @@ const queryMonth = qMonth < 10 ? `0${qMonth}` : qMonth;
 const queryDay = qDay < 10 ? `0${qDay}` : qDay;
 
 const regions = {
-  // be: {},
-  be: {}, ch: {}, uk: {}, ie: {},
+  ie: {},
+  // be: {}, ch: {}, ie: {},
 };
 
 // an object to store each redshift query
@@ -68,7 +68,7 @@ Object.keys(regions).forEach((region) => {
               ROW_NUMBER() OVER (PARTITION BY title_id
                                  ORDER BY name, episode_number, series_id, region, is_adult, short_synopsis) AS title_id_ranked
        FROM tv_aug_titles_metadata
-       WHERE is_adult=FALSE and ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}'
+       WHERE is_adult=FALSE and ingest_time>='08-01-2021' and ingest_time<'09-01-2021'
        ORDER BY title_id, name, episode_number, series_id, region, is_adult, short_synopsis) AS ranked
     WHERE ranked.title_id_ranked = 1
   ) as titles
@@ -80,7 +80,7 @@ Object.keys(regions).forEach((region) => {
               ROW_NUMBER() OVER (PARTITION BY title_id, provider_id
                                  ORDER BY discoverable_as_vod) AS title_id_ranked
        FROM tv_aug_contents_metadata
-       WHERE ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}'
+       WHERE ingest_time>='08-01-2021' and ingest_time<'09-01-2021'
        ORDER BY title_id, discoverable_as_vod, provider_id) AS ranked
     WHERE ranked.title_id_ranked = 1
   ) as contents on contents.title_id=logs.external_identifier
@@ -91,7 +91,7 @@ Object.keys(regions).forEach((region) => {
               ROW_NUMBER() OVER (PARTITION BY series_id
                                  ORDER BY series_name, season_number) AS series_id_ranked
        FROM tv_aug_series_metadata
-       WHERE ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}'
+       WHERE ingest_time>='08-01-2021' and ingest_time<'09-01-2021'
        ORDER BY series_id, series_name, season_number) AS ranked
     WHERE ranked.series_id_ranked = 1
   ) as series on series.series_id=titles.series_id
@@ -102,7 +102,7 @@ Object.keys(regions).forEach((region) => {
               ROW_NUMBER() OVER (PARTITION BY title_id
                                  ORDER BY channel_id) AS title_id_ranked
        FROM tv_aug_events_metadata
-       WHERE ingest_time>='${startStrMonth}-${startStrDay}-${startYear}' and ingest_time<'${endStrMonth}-${endStrDay}-${endYear}'
+       WHERE ingest_time>='08-01-2021' and ingest_time<'09-01-2021'
        ORDER BY title_id, channel_id) AS ranked
     WHERE ranked.title_id_ranked = 1
   ) as events on events.title_id=logs.external_identifier
