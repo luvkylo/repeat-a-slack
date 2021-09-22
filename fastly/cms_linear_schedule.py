@@ -104,7 +104,7 @@ def main():
                                 "This program is already in the database:", program_id)
                         else:
                             print("Program is not in the database yet")
-                            if programType == 'LIVE STREAM':
+                            if programType == 'LIVE_STREAM':
                                 insertValues.append(
                                     [account_id] + newList + [None, startStr])
                             elif programType == 'VOD_PROGRAM':
