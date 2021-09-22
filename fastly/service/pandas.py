@@ -106,15 +106,15 @@ class ETLPandasService:
                 lambda x: self.inverse_regex_substring_count(r".+\.m3u8", r"(chunklist.*)\.m3u8|(playlist.+)\.m3u8|\d+\.m3u8", x)).astype('int')
             self.df['count'] = 1
             self.df['count_720p'] = self.df['url'].apply(
-                lambda x: 1 if self.mutiple_regex_condition([r"(playlist.+\.m3u8)", r"1280x720"], x) or self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"720p"], x) else 0).astype('int')
+                lambda x: 1 if self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"720p"], x) else 0).astype('int')
             self.df['count_1080p'] = self.df['url'].apply(
-                lambda x: 1 if self.mutiple_regex_condition([r"(playlist.+\.m3u8)", r"1920x1080"], x) or self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"1080p"], x) else 0).astype('int')
+                lambda x: 1 if self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"1080p"], x) else 0).astype('int')
             self.df['between_720p_and_1080p_count'] = self.df['url'].apply(
-                lambda x: 1 if (self.mutiple_regex_condition([r"(playlist.+\.m3u8)", r"\d{3,4}x\d{3,4}"], x) and int(re.search(r"\d{3,4}x(\d{3,4})", x).group(1)) > 720 and int(re.search(r"\d{3,4}x(\d{3,4})", x).group(1)) < 1080) or (self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"\d{3,4}p"], x) and int(re.search(r"(\d{3,4})p", x).group(1)) > 720 and int(re.search(r"(\d{3,4})p", x).group(1)) < 1080) else 0).astype('int')
+                lambda x: 1 if self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"\d{3,4}p"], x) and int(re.search(r"(\d{3,4})p", x).group(1)) > 720 and int(re.search(r"(\d{3,4})p", x).group(1)) < 1080 else 0).astype('int')
             self.df['under_720p_count'] = self.df['url'].apply(
-                lambda x: 1 if (self.mutiple_regex_condition([r"(playlist.+\.m3u8)", r"\d{3,4}x\d{3,4}"], x) and int(re.search(r"\d{3,4}x(\d{3,4})", x).group(1)) < 720) or (self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"\d{3,4}p"], x) and int(re.search(r"(\d{3,4})p", x).group(1)) < 720) else 0).astype('int')
+                lambda x: 1 if self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"\d{3,4}p"], x) and int(re.search(r"(\d{3,4})p", x).group(1)) < 720 else 0).astype('int')
             self.df['over_1080p_count'] = self.df['url'].apply(
-                lambda x: 1 if (self.mutiple_regex_condition([r"(playlist.+\.m3u8)", r"\d{3,4}x\d{3,4}"], x) and int(re.search(r"\d{3,4}x(\d{3,4})", x).group(1)) > 1080) or (self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"\d{3,4}p"], x) and int(re.search(r"(\d{3,4})p", x).group(1)) > 1080) else 0).astype('int')
+                lambda x: 1 if self.mutiple_regex_condition([r"(chunklist\.m3u8)", r"\d{3,4}p"], x) and int(re.search(r"(\d{3,4})p", x).group(1)) > 1080 else 0).astype('int')
             self.df['city'] = self.df['city'].apply(lambda x: str(x).title())
             self.df['debug_url'] = np.where(np.logical_or(np.logical_or(
                 self.df['channel_id'].isnull(), self.df['distributor'] == '-'), np.logical_and(self.df['status'] >= 400, self.df['status'] < 500)), self.df['url'], '')
