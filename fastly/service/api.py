@@ -236,8 +236,9 @@ class APIrequests:
                 'Schedule ID has incorrect format. Please input correct Schedule ID')
         else:
             headers = {'X-Frequency-Auth': freqAuth,
-                       'X-Frequency-DeviceId': freqID}
-            url = 'https://prd-freq.frequency.com/api//2.0/cms/dynamic_programs/{dynamic_program_id}/linear_schedules/{linear_schedule_id}'.format(
+                       'X-Frequency-DeviceId': freqID,
+                       'X-Frequency-Account': account_id}
+            url = 'https://prd-freq.frequency.com/api/2.0/cms/dynamic_programs/{dynamic_program_id}/linear_schedules/{linear_schedule_id}'.format(
                 dynamic_program_id=str(dynamic_program_id), linear_schedule_id=str(schedule_id))
 
             response = self.s.get(url=url, headers=headers)
@@ -254,8 +255,9 @@ class APIrequests:
             else:
                 results = ['']
 
-                if response.json()['linear_program_status'] != 'Draft':
-                    linear_program_id = response.json()['linear_program_id']
+                if response.json()['dynamic_program_status'] != 'Draft':
+                    linear_program_id = int(
+                        response.json()['linear_program_id'])
                     results = self.getVODProgram(
                         account_id=account_id, program_id=linear_program_id, freqID=freqID, freqAuth=freqAuth)
 
