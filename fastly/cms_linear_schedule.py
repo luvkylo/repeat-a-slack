@@ -123,6 +123,14 @@ def main():
                                         video_id)
                                     insertValues.append(
                                         [account_id] + newList + [video_id, startStr])
+                            elif programType == 'DYNAMIC_PROGRAM':
+                                videoIDs = apis.getDynamicProgram(account_id=account_id, auto_program_id=program_id,
+                                                                  schedule_id=schedule_id, freqID=env_var.x_frequency_deviceid, freqAuth=env_var.x_frequency_auth)
+                                for video_id in videoIDs:
+                                    video_id = None if video_id == '' else int(
+                                        video_id)
+                                    insertValues.append(
+                                        [account_id] + newList + [video_id, startStr])
                             else:
                                 print("Do not recognize program type:",
                                       programType)
