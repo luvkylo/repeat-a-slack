@@ -296,7 +296,7 @@ class Queries:
             return """
                 SELECT 
                     agg.timestamps as timestamps,
-                    schedule.linear_channel_id as channel_id,
+                    CASE WHEN schedule.linear_channel_id IS NULL THEN agg.channel_id ELSE schedule.linear_channel_id END as channel_id,
                     schedule.schedule_start_time as schedule_start_time,
                     schedule.schedule_end_time as schedule_end_time,
                     schedule.linear_program_title as linear_program_title,
