@@ -363,7 +363,7 @@ class Queries:
                     ORDER  BY schedule_start_time
                 ) as schedule
                 ON agg.timestamps >= schedule.schedule_start_time and agg.timestamps < schedule.schedule_end_time and agg.channel_id=schedule.linear_channel_id
-                GROUP BY timestamps, schedule.linear_channel_id, schedule_start_time, schedule_end_time, linear_program_title, channel_name, distributor, schedule_duration_ms, linear_program_description, client_request
+                GROUP BY timestamps, schedule.linear_channel_id, agg.channel_id, schedule_start_time, schedule_end_time, linear_program_title, channel_name, distributor, schedule_duration_ms, linear_program_description, client_request
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
 
     def totalBandwidth(self, startStr='', endStr=''):
