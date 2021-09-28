@@ -205,7 +205,66 @@ class APIrequests:
                 results = ['']
 
                 if response.json()['status'] != 'DRAFT':
-                    linear_program_id = response.json()['linear_program_id']
+                    if response.json()['linear_program_id'] == None:
+                        linear_program_id = auto_program_id
+                    else:
+                        linear_program_id = response.json()[
+                            'linear_program_id']
+                    results = self.getVODProgram(
+                        account_id=account_id, program_id=linear_program_id, freqID=freqID, freqAuth=freqAuth)
+
+            return results
+
+    def getDynamicProgram(self, account_id='', dynamic_program_id='', schedule_id='', freqID='', freqAuth=''):
+        if (account_id == ''):
+            raise KeyError('Missing account ID!')
+        elif (dynamic_program_id == ''):
+            raise KeyError('Missing dynamic program ID!')
+        elif (schedule_id == ''):
+            raise KeyError('Missing linear schedule ID!')
+        elif (freqID == ''):
+            raise KeyError('Missing frequency device ID!')
+        elif (freqAuth == ''):
+            raise KeyError('Missing frequency device auth!')
+        elif (not account_id.isnumeric()):
+            print('Account ID:', account_id)
+            raise KeyError(
+                'Account ID has incorrect format. Please input correct Account ID')
+        elif (not isinstance(dynamic_program_id, int)):
+            print('Program ID:', dynamic_program_id)
+            raise KeyError(
+                'Program ID has incorrect format. Please input correct Automation Program ID')
+        elif (not isinstance(schedule_id, int)):
+            print('Schedule ID:', schedule_id)
+            raise KeyError(
+                'Schedule ID has incorrect format. Please input correct Schedule ID')
+        else:
+            headers = {'X-Frequency-Auth': freqAuth,
+                       'X-Frequency-DeviceId': freqID,
+                       'X-Frequency-Account': account_id}
+            url = 'https://prd-freq.frequency.com/api/2.0/cms/dynamic_programs/{dynamic_program_id}/linear_schedules/{linear_schedule_id}'.format(
+                dynamic_program_id=str(dynamic_program_id), linear_schedule_id=str(schedule_id))
+
+            response = self.s.get(url=url, headers=headers)
+
+            if (response.status_code >= 400 and response.status_code < 500):
+                self.clientErrorCode(
+                    code=response.status_code, message=response.json()["message"])
+            while (response.status_code >= 500 and response.status_code < 600):
+                time.sleep(30)
+                response = self.s.get(url=url, headers=headers)
+            if (response.status_code >= 400 and response.status_code < 500):
+                self.clientErrorCode(
+                    code=response.status_code, message=response.json()["message"])
+            else:
+                results = ['']
+
+                if response.json()['dynamic_program_status'] != 'Draft':
+                    if response.json()['linear_program_id'] == None:
+                        linear_program_id = dynamic_program_id
+                    else:
+                        linear_program_id = int(
+                            response.json()['linear_program_id'])
                     results = self.getVODProgram(
                         account_id=account_id, program_id=linear_program_id, freqID=freqID, freqAuth=freqAuth)
 

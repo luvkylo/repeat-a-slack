@@ -296,7 +296,7 @@ class Queries:
             return """
                 SELECT 
                     agg.timestamps as timestamps,
-                    schedule.linear_channel_id as channel_id,
+                    CASE WHEN schedule.linear_channel_id IS NULL THEN agg.channel_id ELSE schedule.linear_channel_id END as channel_id,
                     schedule.schedule_start_time as schedule_start_time,
                     schedule.schedule_end_time as schedule_end_time,
                     schedule.linear_program_title as linear_program_title,
@@ -363,7 +363,7 @@ class Queries:
                     ORDER  BY schedule_start_time
                 ) as schedule
                 ON agg.timestamps >= schedule.schedule_start_time and agg.timestamps < schedule.schedule_end_time and agg.channel_id=schedule.linear_channel_id
-                GROUP BY timestamps, schedule.linear_channel_id, schedule_start_time, schedule_end_time, linear_program_title, channel_name, distributor, schedule_duration_ms, linear_program_description, client_request
+                GROUP BY timestamps, schedule.linear_channel_id, agg.channel_id, schedule_start_time, schedule_end_time, linear_program_title, channel_name, distributor, schedule_duration_ms, linear_program_description, client_request
                 """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
 
     def totalBandwidth(self, startStr='', endStr=''):

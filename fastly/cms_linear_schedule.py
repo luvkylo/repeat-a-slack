@@ -104,7 +104,7 @@ def main():
                                 "This program is already in the database:", program_id)
                         else:
                             print("Program is not in the database yet")
-                            if programType == 'LIVE STREAM':
+                            if programType == 'LIVE_STREAM':
                                 insertValues.append(
                                     [account_id] + newList + [None, startStr])
                             elif programType == 'VOD_PROGRAM':
@@ -118,6 +118,14 @@ def main():
                             elif programType == 'AUTOMATION_PROGRAM':
                                 videoIDs = apis.getAutomationProgram(account_id=account_id, auto_program_id=program_id,
                                                                      schedule_id=schedule_id, freqID=env_var.x_frequency_deviceid, freqAuth=env_var.x_frequency_auth)
+                                for video_id in videoIDs:
+                                    video_id = None if video_id == '' else int(
+                                        video_id)
+                                    insertValues.append(
+                                        [account_id] + newList + [video_id, startStr])
+                            elif programType == 'DYNAMIC_PROGRAM':
+                                videoIDs = apis.getDynamicProgram(account_id=account_id, dynamic_program_id=program_id,
+                                                                  schedule_id=schedule_id, freqID=env_var.x_frequency_deviceid, freqAuth=env_var.x_frequency_auth)
                                 for video_id in videoIDs:
                                     video_id = None if video_id == '' else int(
                                         video_id)
