@@ -208,8 +208,8 @@ class APIrequests:
                     if response.json()['linear_program_id'] == None:
                         linear_program_id = auto_program_id
                     else:
-                        linear_program_id = response.json()[
-                            'linear_program_id']
+                        linear_program_id = int(response.json()[
+                            'linear_program_id'])
                     results = self.getVODProgram(
                         account_id=account_id, program_id=linear_program_id, freqID=freqID, freqAuth=freqAuth)
 
