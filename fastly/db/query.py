@@ -91,7 +91,7 @@ class Queries:
         else:
             return """
                 SELECT
-                schedule.channel_id as id,
+                CASE WHEN schedule.channel_id::varchar IS NULL THEN logs.channel_id ELSE schedule.channel_id::varchar END as id,
                 CASE WHEN linear.channel_name IS NULL THEN 'Unknown' ELSE linear.channel_name END as channel_name,
                 channel.channel_title as brand_name,
                 schedule.program_start_time as program_start_time,
