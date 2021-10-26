@@ -82,16 +82,24 @@ class Queries:
                 WHERE job_name='{job_name}' AND hashed_id='{hashed_id}'
             """.format(hashed_id=hashed_id, error=error.replace("'", "\\'"), job_name=job_name)
 
-    def fastlyLogWithVideoAndScheduleQuery(self, completed='', newCompleted='', onePrior='', oneLater=''):
+    def fastlyLogWithVideoAndScheduleQuery(self, completed='', newCompleted='', onePrior='', oneLater='', dummy=False):
         if (completed == '' or newCompleted == '' or onePrior == '' or oneLater == ''):
             raise KeyError('Missing one of the param!!')
         elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, onePrior, oneLater])):
             raise KeyError(
                 'One of the param does not match the correct timestamp pattern!!')
         else:
+            str1 = "'22' as id," if dummy else "CASE WHEN schedule.channel_id::varchar IS NULL THEN logs.channel_id ELSE schedule.channel_id::varchar END as id,"
+            str2 = "timestamps>='{time1}' and timestamps<'{time2}' and channel_id='59'".format(
+                time1=completed, time2=newCompleted) if dummy else "timestamps>='{time1}' and timestamps<'{time2}'".format(time1=completed, time2=newCompleted)
+            str3 = "schedule_start_time>='{time3}' and schedule_start_time<'{time4}' and linear_channel_id='22'".format(
+                time3=onePrior, time4=oneLater) if dummy else "schedule_start_time>='{time3}' and schedule_start_time<'{time4}'".format(time3=onePrior, time4=oneLater)
+            str4 = "instruction_start_time>='{time3}' and instruction_start_time<'{time4}'".format(
+                time3=onePrior, time4=oneLater)
+
             return """
                 SELECT
-                CASE WHEN schedule.channel_id::varchar IS NULL THEN logs.channel_id ELSE schedule.channel_id::varchar END as id,
+                {str1}
                 CASE WHEN linear.channel_name IS NULL THEN 'Unknown' ELSE linear.channel_name END as channel_name,
                 channel.channel_title as brand_name,
                 schedule.program_start_time as program_start_time,
@@ -112,7 +120,7 @@ class Queries:
                 FROM (
                 SELECT timestamps, channel_id, distributor, minutes_watched, client_request
                 FROM fastly_log_aggregated_metadata
-                WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='200' and status<'400'
+                WHERE {str2} and status>='200' and status<'400'
                 ) as logs
                 LEFT JOIN (
                 SELECT
@@ -130,7 +138,7 @@ class Queries:
                 FROM (
                     SELECT DISTINCT linear_channel_id, schedule_start_time, schedule_end_time, linear_program_id, linear_program_title, linear_program_description, video_id
                     FROM   cms_linear_schedule
-                    WHERE schedule_start_time>='{time3}' and schedule_start_time<'{time4}'
+                    WHERE {str3}
                     ORDER  BY schedule_start_time
                 ) as program
                 LEFT JOIN (
@@ -145,7 +153,7 @@ class Queries:
                             ROW_NUMBER() OVER (PARTITION BY linear_program_id, instruction_reference_asset_id, instruction_start_time
                                             ORDER BY event_time desc) AS ranked_num
                     FROM cms_linear_schedule_master
-                    WHERE instruction_type='VIDEO' OR instruction_type='INTERSTITIAL' and instruction_start_time>='{time3}' and instruction_start_time<'{time4}'
+                    WHERE instruction_type='VIDEO' OR instruction_type='INTERSTITIAL' and {str4}
                     ORDER BY instruction_start_time
                     ) AS ranked
                     WHERE ranked.ranked_num = 1
@@ -180,7 +188,7 @@ class Queries:
                 ) as channel
                 on channel.channel_id = schedule.video_feed_channel_id
                 GROUP BY id, channel_name, brand_name, program_start_time, program_end_time, program_title, video_title, video_description, video_start_time, video_end_time, video_feed_channel_id, external_id, frequency_id, distributor, client_request
-                """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
+                """.format(str1=str1, str2=str2, str3=str3, str4=str4)
 
     def checkScheduleID(self, schedule_id=''):
         if (schedule_id == ''):
@@ -192,13 +200,19 @@ class Queries:
                 WHERE linear_schedule_id='{schedule_id}';
             """.format(schedule_id=schedule_id)
 
-    def fastlyLogWithLinearScheduleQuery(self, completed='', newCompleted='', onePrior='', oneLater=''):
+    def fastlyLogWithLinearScheduleQuery(self, completed='', newCompleted='', onePrior='', oneLater='', dummy=False):
         if (completed == '' or newCompleted == '' or onePrior == ''):
             raise KeyError('Missing one of the param!!')
         elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, onePrior])):
             raise KeyError(
                 'One of the param does not match the correct timestamp pattern!!')
         else:
+            str1 = "'22' as channel_id, '6602993843407301207' as account_id, '22' as linear_channel_id," if dummy else "channel_id, account_id, linear_channel_id,"
+            str2 = "timestamps>='{time1}' and timestamps<'{time2}' and channel_id='59'".format(
+                time1=completed, time2=newCompleted) if dummy else "timestamps>='{time1}' and timestamps<'{time2}'".format(time1=completed, time2=newCompleted)
+            str3 = "schedule_start_time>='{time3}' and schedule_start_time<'{time4}' and linear_channel_id='59'".format(
+                time3=onePrior, time4=oneLater) if dummy else "schedule_start_time>='{time3}' and schedule_start_time<'{time4}'".format(time3=onePrior, time4=oneLater)
+
             return """
                 SELECT
                     timestamps, distributor, city, country, region, continent,
@@ -211,7 +225,7 @@ class Queries:
                     CASE WHEN sum(between_720p_and_1080p_count) IS NULL THEN 0 ELSE sum(between_720p_and_1080p_count) END as between_720p_and_1080p_count,
                     CASE WHEN sum(under_720p_count) IS NULL THEN 0 ELSE sum(under_720p_count) END as under_720p_count,
                     CASE WHEN sum(over_1080p_count) IS NULL THEN 0 ELSE sum(over_1080p_count) END as over_1080p_count,
-                    channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name, client_request
+                    {str1} schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name, client_request
                 FROM (
                     SELECT
                         DATE_TRUNC('hours', logs.timestamps) as timestamps,
@@ -260,7 +274,7 @@ class Queries:
                             channel_id,
                             client_request
                         FROM fastly_log_aggregated_metadata
-                        WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='200' and status<'400'
+                        WHERE {str2} and status>='200' and status<'400'
                         GROUP BY timestamps, distributor, city, country, region, continent, channel_id, client_request
                     ) as logs
                     LEFT JOIN (
@@ -278,25 +292,33 @@ class Queries:
                     FULL OUTER JOIN (
                         SELECT DISTINCT account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description
                         FROM   cms_linear_schedule
-                        WHERE schedule_start_time>='{time3}' and schedule_start_time<'{time4}'
+                        WHERE {str3}
                         ORDER  BY schedule_start_time
                     ) as schedule
                     ON logs.timestamps >= schedule.schedule_start_time and logs.timestamps < schedule.schedule_end_time and logs.channel_id=schedule.linear_channel_id
                 )
                 GROUP BY timestamps, distributor, city, country, region, continent, channel_id, account_id, linear_channel_id, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_id, linear_program_title, linear_program_description, channel_name, client_request
-                """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
+                """.format(str1=str1, str2=str2, str3=str3)
 
-    def fastlyLogWithLinearAndFillRateQuery(self, completed='', newCompleted='', onePrior='', oneLater=''):
+    def fastlyLogWithLinearAndFillRateQuery(self, completed='', newCompleted='', onePrior='', oneLater='', dummy=False):
         if (completed == '' or newCompleted == '' or onePrior == ''):
             raise KeyError('Missing one of the param!!')
         elif (None in self.groupRegexCheck(r'\w{4}-\w{2}-\w{2}\s{1}\w{2}:\w{2}:\w{2}', [completed, newCompleted, onePrior])):
             raise KeyError(
                 'One of the param does not match the correct timestamp pattern!!')
         else:
+            str1 = "'22' as channel_id," if dummy else "CASE WHEN schedule.linear_channel_id IS NULL THEN agg.channel_id ELSE schedule.linear_channel_id END as channel_id,"
+            str2 = "timestamps>='{time1}' and timestamps<'{time2}' and channel_id='59'".format(
+                time1=completed, time2=newCompleted) if dummy else "timestamps>='{time1}' and timestamps<'{time2}'".format(time1=completed, time2=newCompleted)
+            str3 = "query_date>='{time1}' and query_date<'{time2}' and channel_id='59'".format(
+                time1=completed, time2=newCompleted) if dummy else "query_date>='{time1}' and query_date<'{time2}'".format(time1=completed, time2=newCompleted)
+            str4 = "schedule_start_time>='{time3}' and schedule_start_time<'{time4}' and linear_channel_id='59'".format(
+                time3=onePrior, time4=oneLater) if dummy else "schedule_start_time>='{time3}' and schedule_start_time<'{time4}'".format(time3=onePrior, time4=oneLater)
+
             return """
                 SELECT 
                     agg.timestamps as timestamps,
-                    CASE WHEN schedule.linear_channel_id IS NULL THEN agg.channel_id ELSE schedule.linear_channel_id END as channel_id,
+                    {str1}
                     schedule.schedule_start_time as schedule_start_time,
                     schedule.schedule_end_time as schedule_end_time,
                     schedule.linear_program_title as linear_program_title,
@@ -331,7 +353,7 @@ class Queries:
                         FROM (
                             SELECT timestamps, CASE WHEN channel_id=' ' THEN NULL ELSE channel_id END as channel_id, upper(split_part(split_part(distributor,'-',2), '/', 1)) as distributor, sum(minutes_watched) as minutes_watched, client_request
                             FROM fastly_log_aggregated_metadata
-                            WHERE timestamps>='{time1}' and timestamps<'{time2}' and status>='200' and status<'400'
+                            WHERE {str2} and status>='200' and status<'400'
                             GROUP BY timestamps, channel_id, distributor, client_request
                         ) as logs
                         GROUP BY timestamps, channel_id, distributor, client_request
@@ -339,7 +361,7 @@ class Queries:
                     FULL JOIN (
                         SELECT query_date, (CASE WHEN regexp_substr(origin_id, '-(\\\\d+)-', 1, 1, 'e')='' THEN NULL ELSE regexp_substr(origin_id, '-(\\\\d+)-', 1, 1, 'e') END)::varchar as channel_id, split_part(origin_id,'-',4) as distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum
                         FROM cwl_mediatailor_fillrate
-                        WHERE query_date>='{time1}' and query_date<'{time2}'
+                        WHERE {str3}
                     ) as fill
                     ON fill.query_date = a.timestamps and fill.channel_id=a.id and fill.distributor=a.distributor and a.ranked=1
                     LEFT JOIN (
@@ -359,12 +381,12 @@ class Queries:
                 LEFT JOIN (
                     SELECT DISTINCT linear_channel_id::varchar, schedule_start_time, schedule_end_time, schedule_duration_ms, linear_program_title, linear_program_description
                     FROM   cms_linear_schedule
-                    WHERE schedule_start_time>='{time3}' and schedule_end_time<'{time4}'
+                    WHERE {str4}
                     ORDER  BY schedule_start_time
                 ) as schedule
                 ON agg.timestamps >= schedule.schedule_start_time and agg.timestamps < schedule.schedule_end_time and agg.channel_id=schedule.linear_channel_id
                 GROUP BY timestamps, schedule.linear_channel_id, agg.channel_id, schedule_start_time, schedule_end_time, linear_program_title, channel_name, distributor, schedule_duration_ms, linear_program_description, client_request
-                """.format(time1=completed, time2=newCompleted, time3=onePrior, time4=oneLater)
+                """.format(str1=str1, str2=str2, str3=str3, str4=str4)
 
     def totalBandwidth(self, startStr='', endStr=''):
         if (startStr == ''):
