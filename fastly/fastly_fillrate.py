@@ -119,7 +119,37 @@ def main():
                 args_str = args_str.replace(",'',", ',NULL,')
                 redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum, client_request) VALUES " + args_str)
 
-            print("Data ingested")
+            print("Normal data ingested")
+
+            print("Querying dummy data...")
+
+            redshift1.execute(
+                queries.fastlyLogWithLinearAndFillRateQuery(
+                    completed=completed, newCompleted=newCompleted, onePrior=onePrior, oneLater=oneLater, dummy=True)
+            )
+
+            args_str = b','.join(redshift.cursor.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", x)
+                                 for x in tuple(redshift1.returnResult()))
+
+            args_str = args_str.decode(
+                "utf-8").replace('::timestamp', '').replace('"', '\\"').replace('“', '\\"').replace('”', '\\"').replace(" ''", ' "').replace("'')", '")').replace("'' ", '" ')
+            args_str = re.sub('\s+', ' ', args_str)
+
+            while len(args_str) > 15000000:
+                index = args_str.find("1)", 15000000, 16000000)
+                if index == -1:
+                    index = args_str.find("NULL)", 15000000, 16000000)
+                    temp_str = args_str[0: index + 5].replace(",'',", ',NULL,')
+                    args_str = args_str[index + 6:].replace(",'',", ',NULL,')
+                else:
+                    temp_str = args_str[0: index + 2].replace(",'',", ',NULL,')
+                    args_str = args_str[index + 3:].replace(",'',", ',NULL,')
+                redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum, client_request) VALUES " + temp_str)
+            if len(args_str) > 0:
+                args_str = args_str.replace(",'',", ',NULL,')
+                redshift.execute("INSERT INTO fastly_log_with_linear_and_fillrate_metadata (timestamps, channel_id, schedule_start_time, schedule_end_time, linear_program_title, minutes_watched, schedule_duration_ms, linear_program_description, channel_name, distributor, filled_duration_sum, origin_avail_duration_sum, num_ads_sum, client_request) VALUES " + args_str)
+
+            print("Dummy data ingested")
 
             print("************************************************************")
 
