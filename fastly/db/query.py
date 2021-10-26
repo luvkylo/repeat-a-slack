@@ -92,7 +92,7 @@ class Queries:
             str1 = "'22' as id," if dummy else "CASE WHEN schedule.channel_id::varchar IS NULL THEN logs.channel_id ELSE schedule.channel_id::varchar END as id,"
             str2 = "timestamps>='{time1}' and timestamps<'{time2}' and channel_id='59'".format(
                 time1=completed, time2=newCompleted) if dummy else "timestamps>='{time1}' and timestamps<'{time2}'".format(time1=completed, time2=newCompleted)
-            str3 = "schedule_start_time>='{time3}' and schedule_start_time<'{time4}' and linear_channel_id='22'".format(
+            str3 = "schedule_start_time>='{time3}' and schedule_start_time<'{time4}' and linear_channel_id='59'".format(
                 time3=onePrior, time4=oneLater) if dummy else "schedule_start_time>='{time3}' and schedule_start_time<'{time4}'".format(time3=onePrior, time4=oneLater)
             str4 = "instruction_start_time>='{time3}' and instruction_start_time<'{time4}'".format(
                 time3=onePrior, time4=oneLater)
