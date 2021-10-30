@@ -209,7 +209,7 @@ function parse(key) {
                   session_id: jsonObj.sessionId,
                   session_type: jsonObj.sessionType,
                   beacon_info_beacon_http_response_code: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconHttpResponseCode !== 'undefined') ? jsonObj.beaconInfo.beaconHttpResponseCode : ''),
-                  beacon_info_beacon_uri: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? jsonObj.beaconInfo.beaconUri : ''),
+                  beacon_info_beacon_uri: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? jsonObj.beaconInfo.beaconUri.slice(0, 1000) : ''),
                   beacon_info_headers_0_name,
                   beacon_info_headers_0_value,
                   beacon_info_headers_1_name,
