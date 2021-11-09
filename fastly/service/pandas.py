@@ -40,11 +40,9 @@ class ETLPandasService:
         else:
             return num * (6/60)
 
-    def match(self, regex, x, select, group=1):
+    def match(self, regex, x, group=1):
         if re.search(regex, x):
             return re.search(regex, x).group(group)
-        elif re.search(r"\/fc14d596499441f292ad020e683e9339\/", x):
-            return '126' if select == "channel_id" else 'dist-sntv'
         return ''
 
     def mutiple_regex_condition(self, lst, x):
@@ -97,9 +95,9 @@ class ETLPandasService:
                 self.df['response_body_size']
 
             self.df['channel_id'] = self.df['url'].apply(
-                lambda x: self.match(r"\/(\d+)\/", x, 'channel_id'))
+                lambda x: self.match(r"\/(\d+)\/", x))
             self.df['distributor'] = self.df['url'].apply(
-                lambda x: (self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, 'distributor', group=1) + '-' + self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, 'distributor', group=2).title().replace("-", "_")))
+                lambda x: (self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, group=1) + '-' + self.match(r"\/(dist|mt)\/((\w+|\d+|\-*)+)", x, group=2).title().replace("-", "_")))
             # self.df['minutes_watched'] = self.df['url'].apply(
             #     lambda x: self.regex_substring_count(r"\.ts", x)).astype('int')*6/60
             self.df['minutes_watched'] = self.df.apply(
