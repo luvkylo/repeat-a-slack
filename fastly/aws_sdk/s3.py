@@ -329,7 +329,7 @@ class S3:
             for keyObj in response["Contents"]:
                 if 'Frequency-Tag-BillingId' in keyObj["Key"]:
                     timestamp = re.search(
-                        r"Frequency-Tag-BillingId-(\d{4}-\d{2})", keyObj["Key"]).group(1)
+                        r"(\d{4}-\d{2})", str(keyObj["LastModified"])).group(1)
                     log_time = time.strptime(
                         timestamp + "-01 00:00 UTC", "%Y-%m-%d %H:%M %Z")
                     if any([time.mktime(log_time) >= time.mktime(gmt)]):
