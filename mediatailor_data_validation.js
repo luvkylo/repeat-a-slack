@@ -58,7 +58,7 @@ function statusFunc(queryId) {
                   throw new Error(e);
                 });
                 resolve(status);
-              }, 60000);
+              }, 300000);
             } catch (e) {
               console.log(e);
               throw new Error(e);
