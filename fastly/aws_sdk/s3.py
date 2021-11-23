@@ -7,6 +7,7 @@ import os
 import gzip
 from os.path import dirname, abspath
 from datetime import datetime
+from concurrent import futures
 
 import pandas as pd
 
@@ -78,13 +79,14 @@ class S3:
     def getKeyList(self):
         return self.keylist
 
-    def getObject(self, bucket='', key=''):
-        if (bucket == ''):
-            raise KeyError('Missing bucket name!')
-        elif (key == ''):
-            raise KeyError('Missing key value!')
+    def getObject(self, args=''):
+        if (args == '' or len(args) < 2):
+            raise KeyError('Missing arguments!')
         else:
+            bucket = args[0]
+            key = args[1]
             try:
+                print(f'downloading key {key}')
                 obj = self.s3.Object(bucket, key)
                 response = obj.get()
                 return response["Body"]
@@ -244,13 +246,14 @@ class S3:
 
             emptyLog = 0
 
-            # for each log file in s3, download it
-            for key in keyList:
-                body = self.getObject(
-                    bucket=bucket,
-                    key=key
-                )
+            executorArgs = [(bucket, key) for key in keyList]
 
+            with futures.ThreadPoolExecutor() as executor:
+                executeRes = executor.map(self.getObject, executorArgs)
+
+            print('completed all file download')
+            # for each log file in s3, download it
+            for body in executeRes:
                 # for each log in the file, append it to a jsonObj (dict)
                 for lines in body.iter_lines():
                     for line in lines.decode(encoding="utf-8", errors="backslashreplace").splitlines():
