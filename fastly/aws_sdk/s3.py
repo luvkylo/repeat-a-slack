@@ -7,6 +7,7 @@ import os
 import gzip
 from os.path import dirname, abspath
 from datetime import datetime
+from concurrent import futures
 
 import pandas as pd
 
@@ -78,13 +79,14 @@ class S3:
     def getKeyList(self):
         return self.keylist
 
-    def getObject(self, bucket='', key=''):
-        if (bucket == ''):
-            raise KeyError('Missing bucket name!')
-        elif (key == ''):
-            raise KeyError('Missing key value!')
+    def getObject(self, args=''):
+        if (args == '' or len(args) < 2):
+            raise KeyError('Missing arguments!')
         else:
+            bucket = args[0]
+            key = args[1]
             try:
+                print(f'downloading key {key}')
                 obj = self.s3.Object(bucket, key)
                 response = obj.get()
                 return response["Body"]
@@ -148,6 +150,38 @@ class S3:
                 )
             print("All Files are removed")
 
+    def uploadObject(self, args=''):
+        if (args == '' or len(args) < 6):
+            raise KeyError('Missing arguments!')
+        else:
+            id = args[0]
+            keyList = args[1]
+            tempDf = args[2]
+            destBucket = args[3]
+            destFolder = args[4]
+            start = args[5]
+
+            directory = dirname(abspath(__file__))
+            filename = keyList[0].split('/')[-4] + keyList[0].split(
+                '/')[-3] + keyList[0].split('/')[-2] + '_' + keyList[0].split('/')[-1].split(' ')[0] + '_' + time.strftime("%Y%m%d_%H%M%S", start) + '.csv'
+
+            os.mkdir(os.path.join(directory, id))
+            tempDf.to_csv(directory + '/' + id + '/' + filename, index=False)
+            destKey = destFolder + '/' + id + '/' + keyList[0].split('/')[-4] + '/' + keyList[0].split(
+                '/')[-3] + '/' + keyList[0].split('/')[-2] + '/' + keyList[0].split('/')[-1].split(' ')[0] + '_' + time.strftime("%Y%m%d_%H%M%S", start) + '.csv'
+
+            print("Uploading files for channel: " + id + "...")
+            self.s3.meta.client.upload_file(
+                directory + '/' + id + '/' + filename, destBucket, destKey)
+            print(f"File for channel {id} uploaded")
+            print(f"Removing local files for channel {id} now")
+            if os.path.exists(directory + '/' + id + '/' + filename):
+                os.remove(directory + '/' + id + '/' + filename)
+                os.rmdir(os.path.join(directory, id))
+            else:
+                print(f"Local file for channel {id} does not exist")
+            return id
+
     def moveObjects(self, keyList='', bucket='', destBucket='', destFolder='', jsonObj=''):
         if (bucket == '' or destBucket == ''):
             raise KeyError('Missing bucket name!')
@@ -165,29 +199,25 @@ class S3:
 
             uniqueChannelId = df['channel_id'].unique()
 
+            uploadObjectArgs = []
+
             for id in uniqueChannelId:
 
                 tempDf = df[(df['channel_id'] == id)]
                 tempDf = tempDf.drop(columns=['channel_id'])
 
-                directory = dirname(abspath(__file__))
-                filename = keyList[0].split('/')[-4] + keyList[0].split(
-                    '/')[-3] + keyList[0].split('/')[-2] + '_' + keyList[0].split('/')[-1].split(' ')[0] + '_' + time.strftime("%Y%m%d_%H%M%S", start) + '.csv'
+                if (id == ''):
+                    id = 'unknown'
 
-                tempDf.to_csv(directory + '/' + filename, index=False)
-                destKey = destFolder + '/' + id + '/' + keyList[0].split('/')[-4] + '/' + keyList[0].split(
-                    '/')[-3] + '/' + keyList[0].split('/')[-2] + '/' + keyList[0].split('/')[-1].split(' ')[0] + '_' + time.strftime("%Y%m%d_%H%M%S", start) + '.csv'
+                uploadObjectArgs.append(
+                    (id, keyList, tempDf, destBucket, destFolder, start))
 
-                print("Uploading files for channel: " + id + "...")
-                self.s3.meta.client.upload_file(
-                    directory + '/' + filename, destBucket, destKey)
-                print("Files uploaded")
-                print("Removing local files now")
-                if os.path.exists(directory + '/' + filename):
-                    os.remove(directory + '/' + filename)
-                else:
-                    print("Local file does not exist")
-                print("Local file removed")
+            with futures.ThreadPoolExecutor() as executor:
+                res = executor.map(self.uploadObject, uploadObjectArgs)
+
+                for id in res:
+                    print(f"Local file for channel {id} removed")
+
             print("Removing S3 files now")
             for key in keyList:
                 self.moveObject(
@@ -244,13 +274,14 @@ class S3:
 
             emptyLog = 0
 
-            # for each log file in s3, download it
-            for key in keyList:
-                body = self.getObject(
-                    bucket=bucket,
-                    key=key
-                )
+            executorArgs = [(bucket, key) for key in keyList]
 
+            with futures.ThreadPoolExecutor() as executor:
+                executeRes = executor.map(self.getObject, executorArgs)
+
+            print('completed all file download')
+            # for each log file in s3, download it
+            for body in executeRes:
                 # for each log in the file, append it to a jsonObj (dict)
                 for lines in body.iter_lines():
                     for line in lines.decode(encoding="utf-8", errors="backslashreplace").splitlines():
