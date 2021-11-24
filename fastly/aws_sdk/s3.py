@@ -382,12 +382,13 @@ class S3:
         else:
             result = []
 
+            executorArgs = [(bucket, key) for key in keyList]
+
+            with futures.ThreadPoolExecutor() as executor:
+                executeRes = executor.map(self.getObject, executorArgs)
+
             # for each log file in s3, download it
-            for key in keyList:
-                body = self.getObject(
-                    bucket=bucket,
-                    key=key
-                )
+            for body in executeRes:
 
                 with gzip.GzipFile(fileobj=body) as gzipfile:
                     content = gzipfile.read()
