@@ -80,19 +80,23 @@ class S3:
         return self.keylist
 
     def getObject(self, args=''):
-        if (args == '' or len(args) < 2):
+        if (args == '' or len(args) < 3):
             raise KeyError('Missing arguments!')
         else:
             bucket = args[0]
             key = args[1]
+            type = args[2]
             try:
                 print(f'downloading key {key}')
                 obj = self.s3.Object(bucket, key)
                 response = obj.get()
-                body = response["Body"].iter_lines()
-                jsonObj = self.createJsonObj(body)
-                print(f'Finished key {key}')
-                return jsonObj
+                if type == 'Fastly':
+                    body = response["Body"].iter_lines()
+                    jsonObj = self.createJsonObj(body)
+                    print(f'Finished key {key}')
+                    return jsonObj
+                else:
+                    return response['Body']
             except self.s3.meta.client.exceptions.NoSuchKey as err:
                 print("Failed to download object")
                 print("Key:", key, "\ndoes not exist in the bucket:", bucket)
@@ -313,7 +317,7 @@ class S3:
             channel59 = []
             emptyChannel = []
 
-            executorArgs = [(bucket, key) for key in keyList]
+            executorArgs = [(bucket, key, 'Fastly') for key in keyList]
 
             with futures.ThreadPoolExecutor() as executor:
                 executeRes = executor.map(self.getObject, executorArgs)
@@ -368,7 +372,7 @@ class S3:
                         self.keylist.append(keyObj["Key"])
 
         if response["IsTruncated"] == True:
-            self.getlist(
+            self.getOriginBandwidthFilelist(
                 bucket=bucket,
                 prefix=prefix,
                 marker=response["NextMarker"],
@@ -383,7 +387,7 @@ class S3:
         else:
             result = []
 
-            executorArgs = [(bucket, key) for key in keyList]
+            executorArgs = [(bucket, key, 'Origin') for key in keyList]
 
             with futures.ThreadPoolExecutor() as executor:
                 executeRes = executor.map(self.getObject, executorArgs)
