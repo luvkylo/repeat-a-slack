@@ -89,7 +89,10 @@ class S3:
                 print(f'downloading key {key}')
                 obj = self.s3.Object(bucket, key)
                 response = obj.get()
-                return response["Body"]
+                body = response["Body"].iter_lines()
+                jsonObj = self.createJsonObj(body)
+                print(f'Finished key {key}')
+                return jsonObj
             except self.s3.meta.client.exceptions.NoSuchKey as err:
                 print("Failed to download object")
                 print("Key:", key, "\ndoes not exist in the bucket:", bucket)
@@ -162,21 +165,23 @@ class S3:
             start = args[5]
 
             directory = dirname(abspath(__file__))
-            filename = keyList[0].split('/')[-4] + keyList[0].split(
-                '/')[-3] + keyList[0].split('/')[-2] + '_' + keyList[0].split('/')[-1].split(' ')[0] + '_' + time.strftime("%Y%m%d_%H%M%S", start) + '.csv'
+            year = keyList[0].split('/')[-4]
+            month = keyList[0].split('/')[-3]
+            day = keyList[0].split('/')[-2]
+            timestamp = keyList[0].split('/')[-1].split(' ')[0].replace('.00', '').replace(':', '')
+            current = time.strftime("%Y%m%d_%H%M%S", start)
+            filename = f'{year}{month}{day}_{timestamp}_{current}.csv'
 
             os.mkdir(os.path.join(directory, id))
-            tempDf.to_csv(directory + '/' + id + '/' + filename, index=False)
-            destKey = destFolder + '/' + id + '/' + keyList[0].split('/')[-4] + '/' + keyList[0].split(
-                '/')[-3] + '/' + keyList[0].split('/')[-2] + '/' + keyList[0].split('/')[-1].split(' ')[0] + '_' + time.strftime("%Y%m%d_%H%M%S", start) + '.csv'
+            tempDf.to_csv(os.path.join(directory, id, filename), index=False)
+            destKey = f'{destFolder}/{id}/{year}/{month}/{day}/{timestamp}_{current}.csv'
 
             print("Uploading files for channel: " + id + "...")
-            self.s3.meta.client.upload_file(
-                directory + '/' + id + '/' + filename, destBucket, destKey)
+            self.s3.meta.client.upload_file(os.path.join(directory, id, filename), destBucket, destKey)
             print(f"File for channel {id} uploaded")
             print(f"Removing local files for channel {id} now")
-            if os.path.exists(directory + '/' + id + '/' + filename):
-                os.remove(directory + '/' + id + '/' + filename)
+            if os.path.exists(os.path.join(directory, id, filename)):
+                os.remove(os.path.join(directory, id, filename))
                 os.rmdir(os.path.join(directory, id))
             else:
                 print(f"Local file for channel {id} does not exist")
@@ -259,6 +264,42 @@ class S3:
                 keys.append(k)
         return keys
 
+    def createJsonObj(self, body):
+        jsonObj = {}
+        emptyLog = 0
+
+        for lines in body:
+            for line in lines.decode(encoding="utf-8", errors="backslashreplace").splitlines():
+                line = line.replace("\\", "\\\\")
+                line = line.replace('\\\\"', '\\"')
+                try:
+                    obj = json.loads(line)
+                    emptyLog += 1
+                    for objKey in obj.keys():
+                        if objKey == 'geo':
+                            for loc in obj[objKey].keys():
+                                if loc in jsonObj:
+                                    jsonObj[loc].append(
+                                        obj[objKey][loc])
+                                else:
+                                    jsonObj[loc] = [obj[objKey][loc]]
+                        else:
+                            if objKey in jsonObj:
+                                jsonObj[objKey].append(obj[objKey])
+                            else:
+                                jsonObj[objKey] = [''] * (emptyLog - 1)
+                                jsonObj[objKey].append(obj[objKey])
+                    for key in jsonObj.keys():
+                        if key not in self.flat_keys(obj):
+                            jsonObj[key].append('')
+                except:
+                    print(line)
+        
+        if "client_request" not in jsonObj:
+            jsonObj["client_request"] = [''] * emptyLog
+
+        return jsonObj
+
     def getDataframeObject(self, keyList='', bucket='', gmt=''):
         if (bucket == ''):
             raise KeyError('Missing bucket name!')
@@ -272,8 +313,6 @@ class S3:
             channel59 = []
             emptyChannel = []
 
-            emptyLog = 0
-
             executorArgs = [(bucket, key) for key in keyList]
 
             with futures.ThreadPoolExecutor() as executor:
@@ -281,56 +320,18 @@ class S3:
 
             print('completed all file download')
             # for each log file in s3, download it
+
+            emptyLog = 0
+
             for body in executeRes:
                 # for each log in the file, append it to a jsonObj (dict)
-                for lines in body.iter_lines():
-                    for line in lines.decode(encoding="utf-8", errors="backslashreplace").splitlines():
-                        line = line.replace("\\", "\\\\")
-                        line = line.replace('\\\\"', '\\"')
-                        try:
-                            obj = json.loads(line)
-                            emptyLog += 1
-                            for objKey in obj.keys():
-                                if objKey == 'geo':
-                                    for loc in obj[objKey].keys():
-                                        if loc in jsonObj:
-                                            jsonObj[loc].append(
-                                                obj[objKey][loc])
-                                        else:
-                                            jsonObj[loc] = [obj[objKey][loc]]
-                                else:
-                                    # **
-                                    # if objKey == 'url':
-                                    # if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '2':
-                                    #     channel2.append(line)
-                                    # if re.search(r"\/(\d+)\/", obj[objKey]) == None or (re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == ''):
-                                    #     emptyChannel.append(line)
-                                    # if re.search(r"\/(\d+)\/", obj[objKey]) and re.search(r"\/(\d+)\/", obj[objKey]).group(1) == '59':
-                                    #     channel59.append(line)
-                                    if objKey in jsonObj:
-                                        jsonObj[objKey].append(obj[objKey])
-                                    else:
-                                        jsonObj[objKey] = [''] * (emptyLog - 1)
-                                        jsonObj[objKey].append(obj[objKey])
-                            for key in jsonObj.keys():
-                                if key not in self.flat_keys(obj):
-                                    jsonObj[key].append('')
-                        except:
-                            print(line)
-
-            if "client_request" not in jsonObj:
-                jsonObj["client_request"] = [''] * emptyLog
-
-            # **
-            # if len(channel2) > 0:
-            #     self.putStrObject('prd-freq-report-data-fr', 'fastly_log/2/' +
-            #                       time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel2))
-            # if len(emptyChannel) > 0:
-            #     self.putStrObject('prd-freq-report-data-fr', 'fastly_log/emptyChannel/' +
-            #                       time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(emptyChannel))
-            # if len(channel59) > 0:
-            #     self.putStrObject('prd-freq-report-data-fr', 'fastly_log/59/' +
-            #                       time.strftime("%Y%m%d%H%M%S", gmt) + '.txt', '\n'.join(channel59))
+                for objKey in body.keys():
+                    if objKey in jsonObj:
+                        jsonObj[objKey] = jsonObj[objKey] + body[objKey]
+                    else:
+                        jsonObj[objKey] = [''] * (emptyLog - 1)
+                        jsonObj[objKey] = jsonObj[objKey] + body[objKey]
+                emptyLog += len(body[list(body.keys())[0]])
             return jsonObj
 
     def getOriginBandwidthFilelist(self, bucket='', prefix='', marker='', gmt=''):
