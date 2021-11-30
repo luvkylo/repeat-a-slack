@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const cliProgress = require('cli-progress');
 const geoip = require('geoip-lite');
+const url = require('url');
 const { s3multipartUpload } = require('./s3_multipart_uploader');
 // const property = require('./property_local');
 const property = require('./property');
@@ -196,6 +197,18 @@ function parse(key) {
                   });
                 }
 
+                let beacon_uri = '';
+                if (jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined' && jsonObj.beaconInfo.beaconUri !== '') {
+                  try {
+                    beacon_uri = new url.URL(jsonObj.beaconInfo.beaconUri);
+                    beacon_uri = beacon_uri.origin;
+                  } catch (error) {
+                    if (error instanceof TypeError) {
+                      beacon_uri = '';
+                    }
+                  }
+                }
+
                 // Create an object to be transform into JSON
                 logObj = {
                   request_time: time,
@@ -209,7 +222,7 @@ function parse(key) {
                   session_id: jsonObj.sessionId,
                   session_type: jsonObj.sessionType,
                   beacon_info_beacon_http_response_code: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconHttpResponseCode !== 'undefined') ? jsonObj.beaconInfo.beaconHttpResponseCode : ''),
-                  beacon_info_beacon_uri: ((jsonObj.beaconInfo && typeof jsonObj.beaconInfo.beaconUri !== 'undefined') ? jsonObj.beaconInfo.beaconUri.slice(0, 1000) : ''),
+                  beacon_info_beacon_uri: beacon_uri,
                   beacon_info_headers_0_name,
                   beacon_info_headers_0_value,
                   beacon_info_headers_1_name,
