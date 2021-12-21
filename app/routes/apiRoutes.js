@@ -47,6 +47,7 @@ module.exports = function (app) {
             // }
             
             // sendMessage(web, 'test');
+            res.json({});
         }
     });
 
