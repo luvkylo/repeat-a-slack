@@ -28,7 +28,7 @@ module.exports = function (app) {
             let challenge = req.body.challenge;
             res.json({"challenge":challenge});
         } else {
-            console.log(req);
+            res.json();
         }
     });
 
