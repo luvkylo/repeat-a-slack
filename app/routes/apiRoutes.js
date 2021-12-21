@@ -45,6 +45,7 @@ module.exports = function (app) {
                     }
                 })
                     .then(response => {
+                        console.log(response.data);
                         if (response.data.plain_text) {
                             if (response.data.plain_text.match(/ALARM:/)) {
                                 let original_text = response.data.plain_text;
