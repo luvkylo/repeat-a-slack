@@ -27,17 +27,17 @@ module.exports = function (app) {
             let challenge = req.body.challenge;
             res.json({"challenge":challenge});
         } else {
-            console.log(req.body);
+            // console.log(req.body);
             if (req.body.event.files) {
                 console.log("....................................................");
-                console.log(req.body.event.files[0]);
+                // console.log(req.body.event.files[0]);
                 axios.get(`https://slack.com/api/files.info?file=${req.body.event.files[0].id}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 })
                     .then(response => {
-                        console.log(response.data);
+                        // console.log(response.data);
                         axios.get(`${response.data.file.url_private}`)
                             .then(res => {
                                 console.log("....................................................");
@@ -55,7 +55,7 @@ module.exports = function (app) {
                 console.log("....................................................")
             }
             
-            sendMessage(web, 'test');
+            // sendMessage(web, 'test');
             res.json();
         }
     });
