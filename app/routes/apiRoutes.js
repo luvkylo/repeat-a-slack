@@ -22,13 +22,12 @@ module.exports = function (app) {
         const token = process.env.SLACK_TOKEN;
         const web = new WebClient(token);
 
-        sendMessage(web, 'test');
-
         if (req.body.challenge) {
             let challenge = req.body.challenge;
             res.json({"challenge":challenge});
         } else {
-            console.log(req.body);
+            console.log(req.body.event.files[0]);
+            sendMessage(web, 'test');
             res.json();
         }
     });
