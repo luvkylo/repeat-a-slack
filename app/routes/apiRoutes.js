@@ -35,9 +35,8 @@ module.exports = function (app) {
                     }
                 })
                     .then(response => {
-                        let original_text = response.data.plain_text;
-
-                        if (orignal_text.match(/ALARM:/)) {
+                        if (response.data.plain_text && response.data.plain_text.match(/ALARM:/)) {
+                            let original_text = response.data.plain_text;
                             let original_link = response.data.url_private;
                             let found = '';
                             let name = '';
