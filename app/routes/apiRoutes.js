@@ -27,6 +27,7 @@ module.exports = function (app) {
             let challenge = req.body.challenge;
             res.json({"challenge":challenge});
         } else {
+            console.log("....................................................");
             console.log(req.body);
             // if (req.body.event.files) {
             //     console.log("....................................................");
