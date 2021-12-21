@@ -29,25 +29,28 @@ module.exports = function (app) {
         } else {
             console.log("....................................................");
             console.log(req.body);
-            // if (req.body.event.files) {
-            //     console.log("....................................................");
-            //     // console.log(req.body.event.files[0]);
-            //     axios.get(`https://slack.com/api/files.info?file=${req.body.event.files[0].id}`, {
-            //         headers: {
-            //             'Authorization': `Bearer ${token}`
-            //         }
-            //     })
-            //         .then(response => {
-            //             console.log(response.data.plain_text);
-            //         })
-            //         .catch(error => {
-            //             console.log(error);
-            //         });
-            //     console.log("++++++++++++++++++++++++++++++++++++++++")
-            // }
+            if (req.body.event.files) {
+                console.log("....................................................");
+                // console.log(req.body.event.files[0]);
+                axios.get(`https://slack.com/api/files.info?file=${req.body.event.files[0].id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
+                    .then(response => {
+                        console.log(response.data);
+                        res.json({});
+                    })
+                    .catch(error => {
+                        console.log(error);
+                    });
+                console.log("++++++++++++++++++++++++++++++++++++++++")
+            } else {
+                res.json({});
+            }
             
             // sendMessage(web, 'test');
-            res.json({});
+            // res.json({});
         }
     });
 
