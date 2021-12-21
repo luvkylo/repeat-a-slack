@@ -16,7 +16,7 @@ function sendMessage(client, msg) {
             if (InAlarm.includes(name)) {
                 client.chat.postMessage({
                     text: msg,
-                    channel: '#alerts-delivery-persisting',
+                    channel: `#${process.env.SLACK_CHANNEL}`,
                 });
             } else {
                 console.log("Already resolved");
