@@ -147,6 +147,11 @@ module.exports = function (app) {
                                             text: `Alarm removed for ${name}`,
                                             channel: '#alerts-playout',
                                         });
+                                    } else {
+                                        web.chat.postMessage({
+                                            text: `Alarm already removed for ${name}`,
+                                            channel: '#alerts-playout',
+                                        });
                                     }
                                 }
                                 res.json({});
