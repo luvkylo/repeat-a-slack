@@ -133,7 +133,7 @@ module.exports = function (app) {
                                         console.log('User reacted to remove the alarm');
                                         removeItemOnce(InAlarm, name);
                                         console.log(InAlarm);
-                                        client.chat.postMessage({
+                                        web.chat.postMessage({
                                             text: `Alarm removed for ${name}`,
                                             channel: '#alerts-playout',
                                         });
