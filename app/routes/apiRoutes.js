@@ -27,7 +27,7 @@ module.exports = function (app) {
             let challenge = req.body.challenge;
             res.json({"challenge":challenge});
         } else {
-            if (req.body.event.files) {
+            if (req.body.event && req.body.event.files) {
                 // console.log(req.body.event.files[0]);
                 axios.get(`https://slack.com/api/files.info?file=${req.body.event.files[0].id}`, {
                     headers: {
@@ -78,11 +78,12 @@ module.exports = function (app) {
                         console.log(error);
                     });
             } else {
-                if (req.body.text.includes('Repeat An Alert')) {
+                if (req.body.text && req.body.text.includes('Repeat An Alert')) {
                     let msg = req.body.text;
                     sendMessage(web, msg);
                     res.json({});
                 } else {
+                    console.log(req.body);
                     res.json({});
                 }
             }
