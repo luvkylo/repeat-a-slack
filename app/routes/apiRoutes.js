@@ -124,7 +124,7 @@ module.exports = function (app) {
                             }
                         })
                             .then(resp => {
-                                console.log(resp.body)
+                                console.log(resp)
                                 if (resp.body.message) {
                                     let txt = resp.body.message.text;
                                     let name = txt.match(/name:\s+(?<name>.+)/);
