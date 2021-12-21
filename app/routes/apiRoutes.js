@@ -3,7 +3,7 @@ require('dotenv').config();
 const axios = require('axios');
 const { WebClient, ErrorCode } = require('@slack/web-api');
 
-let InAlarm = [];
+let InAlarm = ['Linear-76-Pattrn-ML-FillMs'];
 
 function sendMessage(client, msg) {
     try {
@@ -133,6 +133,10 @@ module.exports = function (app) {
                                         console.log('User reacted to remove the alarm');
                                         removeItemOnce(InAlarm, name);
                                         console.log(InAlarm);
+                                        client.chat.postMessage({
+                                            text: `Alarm removed for ${name}`,
+                                            channel: '#alerts-playout',
+                                        });
                                     }
                                 }
                                 res.json({});
