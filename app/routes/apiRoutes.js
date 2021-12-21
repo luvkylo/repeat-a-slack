@@ -16,7 +16,7 @@ function sendMessage(client, msg) {
             if (InAlarm.includes(name)) {
                 client.chat.postMessage({
                     text: msg,
-                    channel: '#alerts-playout',
+                    channel: '#alerts-delivery-persisting',
                 });
             } else {
                 console.log("Already resolved");
