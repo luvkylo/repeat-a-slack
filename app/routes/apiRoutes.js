@@ -5,12 +5,12 @@ const { WebClient, ErrorCode } = require('@slack/web-api');
 
 function sendMessage(client, msg) {
     try {
-        // setTimeout(() => {
-        //     client.chat.postMessage({
-        //         text: msg,
-        //         channel: '#alerts-playout',
-        //     });
-        // }, 30000);
+        setTimeout(() => {
+            client.chat.postMessage({
+                text: msg,
+                channel: '#alerts-playout',
+            });
+        }, 300000);
     } catch (error) {
         console.log(error.code);
         console.log(error.data);
@@ -37,22 +37,54 @@ module.exports = function (app) {
                     .then(response => {
                         let original_text = response.data.plain_text;
 
-                        if (original_text.match(/\"Linear-\d+/)) {
-                            let found = original_text.match(/\"Linear-(?<channel_id>\d+)/g);
-                            console.log(found.groups.channel_id);
+                        if (orignal_text.match(/ALARM:/)) {
+                            let original_link = response.data.url_private;
+                            let found = '';
+                            let name = '';
+                            let time = '';
+
+                            if (original_text.match(/\"Linear-\d+/)) {
+                                found = original_text.match(/\"Linear-(?<channel_id>\d+)/g);
+                                console.log(found.groups.channel_id);
+                                found = found.groups.channel_id
+                            }
+                            if (original_text.match(/Name:\s+.+/)) {
+                                name = original_text.match(/Name:\s+(?<name>.+)/);
+                                console.log(name.groups.name);
+                                name = name.groups.name;
+                            }
+                            if (original_text.match(/Timestamp:\s+.+/)) {
+                                time = original_text.match(/Timestamp:\s+(?<timestamp>.+)/);
+                                console.log(time.groups.timestamp);
+                                time = time.groups.timestamp
+                            }
+
+                            let msg = 
+                            `
+                            ALARM from Repeat An Alert bot for Channel ${found}
+                            name: ${name}
+                            time: ${time}
+                            link to original issue: ${original_link}
+                            `;
+
+                            sendMessage(web, msg);
+                            // console.log(response.data.plain_text);
+                            res.json({});
+                        } else {
+                            res.json({});
                         }
-                        if (original_text.match(/Name:\s+.+/)) {
-                            let name = original_text.match(/Name:\s+(?<name>.+)/);
-                            console.log(name.groups.name);
-                        }
-                        // console.log(response.data.plain_text);
-                        res.json({});
                     })
                     .catch(error => {
                         console.log(error);
                     });
             } else {
-                res.json({});
+                if (req.body.text.includes('Repeat An Alert')) {
+                    let msg = req.body.text;
+                    sendMessage(web, msg);
+                    res.json({});
+                } else {
+                    res.json({});
+                }
             }
             
             // sendMessage(web, 'test');
