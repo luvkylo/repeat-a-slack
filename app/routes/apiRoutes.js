@@ -4,12 +4,12 @@ const { WebClient, ErrorCode } = require('@slack/web-api');
 
 function sendMessage(client, msg) {
     try {
-        setTimeout(() => {
-            client.chat.postMessage({
-                text: msg,
-                channel: '#alerts-playout',
-            });
-        }, 30000);
+        // setTimeout(() => {
+        //     client.chat.postMessage({
+        //         text: msg,
+        //         channel: '#alerts-playout',
+        //     });
+        // }, 30000);
     } catch (error) {
         console.log(error.code);
         console.log(error.data);
