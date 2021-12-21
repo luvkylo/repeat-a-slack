@@ -3,7 +3,8 @@ require('dotenv').config();
 const axios = require('axios');
 const { WebClient, ErrorCode } = require('@slack/web-api');
 
-let InAlarm = ['Linear-44-1-Revry-News-ML-FillMs'];
+let InAlarm = [];
+let completedAlarm = [];
 
 function sendMessage(client, msg) {
     try {
@@ -11,6 +12,7 @@ function sendMessage(client, msg) {
             let name = msg.match(/name:\s+(?<name>.+)/);
             console.log(name.groups.name);
             name = name.groups.name;
+            completedAlarm.push(name);
             if (InAlarm.includes(name)) {
                 client.chat.postMessage({
                     text: msg,
@@ -110,8 +112,16 @@ module.exports = function (app) {
             } else {
                 if (req.body.event && req.body.event.message && req.body.event.message.text && req.body.event.message.text.includes('Repeat An Alert')) {
                     let msg = req.body.event.message.text;
-                    sendMessage(web, msg);
-                    console.log('Repeating an alert...');
+                    let name = msg.match(/name:\s+(?<name>.+)/);
+                    console.log(name.groups.name);
+                    name = name.groups.name;
+
+                    if (completedAlarm.includes(name)) {
+                        removeItemOnce(completedAlarm, name);
+                        sendMessage(web, msg);
+                        console.log('Repeating an alert...');
+                    }
+                    
                     res.json({});
                 } else {
                     if (req.body.event && req.body.event.type && req.body.event.type == 'reaction_added') {
