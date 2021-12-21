@@ -41,7 +41,8 @@ module.exports = function (app) {
                         axios.get(`${response.data.file.url_private}`)
                             .then(res => {
                                 console.log("....................................................");
-                                console.log(res.data);
+                                console.log(response.data.file.url_private);
+                                // console.log(res.data);
                                 // let data = Buffer.from(res.data, 'binary').toString('base64');
                                 // console.log(`data: ${data}`);
                             })
