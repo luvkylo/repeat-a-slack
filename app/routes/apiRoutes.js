@@ -42,7 +42,7 @@ module.exports = function (app) {
                             console.log(response.data.file.url_private);
                             axios.get(`${response.data.file.url_private}`)
                                 .then(result => {
-                                    console.log("....................................................");
+                                    console.log("******************************");
                                     console.log(result);
                                     // let data = Buffer.from(res.data, 'binary').toString('base64');
                                     // console.log(`data: ${data}`);
@@ -57,7 +57,7 @@ module.exports = function (app) {
                     .catch(error => {
                         console.log(error);
                     });
-                console.log("....................................................")
+                console.log("++++++++++++++++++++++++++++++++++++++++")
             }
             
             // sendMessage(web, 'test');
