@@ -37,21 +37,21 @@ module.exports = function (app) {
                     }
                 })
                     .then(response => {
-                        // console.log(response.data);
-                        setTimeout(() => {
-                            console.log(response.data.file.url_private);
-                            axios.get(`${response.data.file.url_private}`)
-                                .then(result => {
-                                    console.log("******************************");
-                                    console.log(result);
-                                    // let data = Buffer.from(res.data, 'binary').toString('base64');
-                                    // console.log(`data: ${data}`);
-                                    res.json();
-                                })
-                                .catch(error => {
-                                    console.log(error);
-                                });
-                        }, 5000);
+                        console.log(response.data);
+                        // setTimeout(() => {
+                        //     console.log(response.data.file.url_private);
+                        //     axios.get(`${response.data.file.url_private}`)
+                        //         .then(result => {
+                        //             console.log("******************************");
+                        //             console.log(result);
+                        //             // let data = Buffer.from(res.data, 'binary').toString('base64');
+                        //             // console.log(`data: ${data}`);
+                        //             res.json();
+                        //         })
+                        //         .catch(error => {
+                        //             console.log(error);
+                        //         });
+                        // }, 5000);
                         
                     })
                     .catch(error => {
