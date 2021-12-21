@@ -67,10 +67,14 @@ module.exports = function (app) {
                             link to original issue: ${original_link}
                             `;
 
+                            console.log('Starting message');
+
                             sendMessage(web, msg);
                             // console.log(response.data.plain_text);
                             res.json({});
                         } else {
+
+                            console.log('Returning to normal');
                             res.json({});
                         }
                     })
@@ -81,6 +85,7 @@ module.exports = function (app) {
                 if (req.body.text && req.body.text.includes('Repeat An Alert')) {
                     let msg = req.body.text;
                     sendMessage(web, msg);
+                    console.log('Repeating an alert...');
                     res.json({});
                 } else {
                     console.log(req.body);
