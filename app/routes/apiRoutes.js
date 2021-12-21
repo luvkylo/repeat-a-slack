@@ -45,11 +45,10 @@ module.exports = function (app) {
                     }
                 })
                     .then(response => {
-                        console.log(response.data);
-                        if (response.data.plain_text) {
-                            if (response.data.plain_text.match(/ALARM:/)) {
-                                let original_text = response.data.plain_text;
-                                let original_link = response.data.url_private;
+                        if (response.data.file && response.data.file.plain_text) {
+                            if (response.data.file.plain_text.match(/ALARM:/)) {
+                                let original_text = response.data.file.plain_text;
+                                let original_link = response.data.file.url_private;
                                 let found = '';
                                 let name = '';
                                 let time = '';
@@ -84,7 +83,7 @@ module.exports = function (app) {
                                 console.log('Starting message');
 
                                 sendMessage(web, msg);
-                            } else if (response.data.plain_text.match(/OK:/)) {
+                            } else if (response.data.file.plain_text.match(/OK:/)) {
                                 let name = original_text.match(/Name:\s+(?<name>.+)/);
                                 console.log(name.groups.name);
                                 name = name.groups.name;
@@ -103,6 +102,7 @@ module.exports = function (app) {
                     })
                     .catch(error => {
                         console.log(error);
+                        res.json({});
                     });
             } else {
                 if (req.body.text && req.body.text.includes('Repeat An Alert')) {
