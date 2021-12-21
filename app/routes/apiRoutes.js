@@ -124,9 +124,8 @@ module.exports = function (app) {
                             }
                         })
                             .then(resp => {
-                                console.log(resp)
-                                if (resp.body.message) {
-                                    let txt = resp.body.message.text;
+                                if (resp.data.message) {
+                                    let txt = resp.data.message.text;
                                     let name = txt.match(/name:\s+(?<name>.+)/);
                                     name = name.groups.name;
                                     console.log("Got user reaction")
