@@ -38,11 +38,13 @@ module.exports = function (app) {
                 })
                     .then(response => {
                         console.log(response.data);
+                        console.log(response.data.file.url_private_download);
                         axios.get(`${response.data.file.url_private_download}`)
                             .then(res => {
+                                console.log("....................................................");
                                 console.log(res.data);
-                                let data = Buffer.from(res.data, 'binary').toString('base64');
-                                console.log(`data: ${data}`);
+                                // let data = Buffer.from(res.data, 'binary').toString('base64');
+                                // console.log(`data: ${data}`);
                             })
                             .catch(error => {
                                 console.log(error);
