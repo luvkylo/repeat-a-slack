@@ -46,7 +46,7 @@ module.exports = function (app) {
                 })
                     .then(response => {
                         if (response.data.file && response.data.file.plain_text) {
-                            if (response.data.file.plain_text.match(/ALARM:/)) {
+                            if (response.data.file.plain_text.match(/entered the ALARM state/)) {
                                 let original_text = response.data.file.plain_text;
                                 let original_link = response.data.file.url_private;
                                 let found = '';
@@ -54,9 +54,9 @@ module.exports = function (app) {
                                 let time = '';
 
                                 if (original_text.match(/\"Linear-\d+/)) {
-                                    found = original_text.match(/\"Linear-(?<channel_id>\d+)/g);
-                                    console.log(found.groups.channel_id);
-                                    found = found.groups.channel_id
+                                    found = original_text.match(/"Linear-(\d+)-/);
+                                    console.log(found[1]);
+                                    found = found[1];
                                 }
                                 if (original_text.match(/Name:\s+.+/)) {
                                     name = original_text.match(/Name:\s+(?<name>.+)/);
@@ -83,7 +83,7 @@ module.exports = function (app) {
                                 console.log('Starting message');
 
                                 sendMessage(web, msg);
-                            } else if (response.data.file.plain_text.match(/OK:/)) {
+                            } else if (response.data.file.plain_text.match(/entered the OK state/)) {
                                 let name = original_text.match(/Name:\s+(?<name>.+)/);
                                 console.log(name.groups.name);
                                 name = name.groups.name;
