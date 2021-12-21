@@ -124,7 +124,7 @@ module.exports = function (app) {
                             }
                         })
                             .then(resp => {
-                                if (resp.data.message) {
+                                if (resp.data.message && resp.data.message.text && resp.data.message.text.includes('Repeat An Alert')) {
                                     let txt = resp.data.message.text;
                                     let name = txt.match(/name:\s+(?<name>.+)/);
                                     name = name.groups.name;
