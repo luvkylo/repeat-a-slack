@@ -8,10 +8,17 @@ let InAlarm = [];
 function sendMessage(client, msg) {
     try {
         setTimeout(() => {
-            client.chat.postMessage({
-                text: msg,
-                channel: '#alerts-playout',
-            });
+            let name = msg.match(/name:\s+(?<name>.+)/);
+            console.log(name.groups.name);
+            name = name.groups.name;
+            if (InAlarm.includes(name)) {
+                client.chat.postMessage({
+                    text: msg,
+                    channel: '#alerts-playout',
+                });
+            } else {
+                console.log("Already resolved");
+            }
         }, 300000);
     } catch (error) {
         console.log(error.code);
@@ -107,16 +114,11 @@ module.exports = function (app) {
             } else {
                 if (req.body.text && req.body.text.includes('Repeat An Alert')) {
                     let msg = req.body.text;
-                    let name = msg.match(/name:\s+(?<name>.+)/);
-                    console.log(name.groups.name);
-                    name = name.groups.name;
-                    if (InAlarm.includes(name)) {
-                        sendMessage(web, msg);
-                        console.log('Repeating an alert...');
-                    }
+                    sendMessage(web, msg);
+                    console.log('Repeating an alert...');
                     res.json({});
                 } else {
-                    console.log(req.body);
+                    console.log('unrecognize request...');
                     res.json({});
                 }
             }
