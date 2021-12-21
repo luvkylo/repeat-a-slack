@@ -38,8 +38,7 @@ module.exports = function (app) {
                 })
                     .then(response => {
                         console.log(response.data);
-                        console.log(response.data.file.url_private_download);
-                        axios.get(`${response.data.file.url_private_download}`)
+                        axios.get(`${response.data.file.url_private}`)
                             .then(res => {
                                 console.log("....................................................");
                                 console.log(res.data);
