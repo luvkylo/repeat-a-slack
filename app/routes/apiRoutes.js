@@ -31,7 +31,11 @@ module.exports = function (app) {
             if (req.body.event.files) {
                 console.log("....................................................");
                 console.log(req.body.event.files[0]);
-                axios.get(`https://slack.com/api/files.info?token=${token}&file=${req.body.event.files[0].id}`)
+                axios.get(`https://slack.com/api/files.info?file=${req.body.event.files[0].id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                })
                     .then(response => {
                         console.log(response.data);
                     })
