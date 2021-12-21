@@ -91,7 +91,7 @@ module.exports = function (app) {
 
                                 sendMessage(web, msg);
                             } else if (response.data.file.plain_text.match(/entered the OK state/)) {
-                                let name = original_text.match(/Name:\s+(?<name>.+)/);
+                                let name = response.data.file.plain_text.match(/Name:\s+(?<name>.+)/);
                                 console.log(name.groups.name);
                                 name = name.groups.name;
                                 if (InAlarm.includes(name)) {
