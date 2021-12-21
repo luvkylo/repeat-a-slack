@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const axios = require('axios');
 const { WebClient, ErrorCode } = require('@slack/web-api');
 
 function sendMessage(client, msg) {
@@ -30,6 +31,13 @@ module.exports = function (app) {
             if (req.body.event.files) {
                 console.log("....................................................");
                 console.log(req.body.event.files[0]);
+                axios.get(`https://slack.com/api/files.info?token=${token}&file=${req.body.event.files[0].id}`)
+                    .then(response => {
+                        console.log(response.data);
+                    })
+                    .catch(error => {
+                        console.log(error);
+                    })
                 console.log("....................................................")
             }
             
