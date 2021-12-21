@@ -27,10 +27,7 @@ module.exports = function (app) {
             let challenge = req.body.challenge;
             res.json({"challenge":challenge});
         } else {
-            console.log("....................................................");
-            console.log(req.body);
             if (req.body.event.files) {
-                console.log("....................................................");
                 // console.log(req.body.event.files[0]);
                 axios.get(`https://slack.com/api/files.info?file=${req.body.event.files[0].id}`, {
                     headers: {
@@ -38,13 +35,22 @@ module.exports = function (app) {
                     }
                 })
                     .then(response => {
-                        console.log(response.data);
+                        let original_text = response.data.plain_text;
+
+                        if (original_text.match(/\"Linear-\d+/)) {
+                            let found = original_text.match(/\"Linear-(?<channel_id>\d+)/g);
+                            console.log(found.groups.channel_id);
+                        }
+                        if (original_text.match(/Name:\s+.+/)) {
+                            let name = original_text.match(/Name:\s+(?<name>.+)/);
+                            console.log(name.groups.name);
+                        }
+                        // console.log(response.data.plain_text);
                         res.json({});
                     })
                     .catch(error => {
                         console.log(error);
                     });
-                console.log("++++++++++++++++++++++++++++++++++++++++")
             } else {
                 res.json({});
             }
