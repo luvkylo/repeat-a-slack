@@ -112,6 +112,7 @@ module.exports = function (app) {
                     console.log('Repeating an alert...');
                     res.json({});
                 } else {
+                    console.log(req.body);
                     console.log('unrecognize request...');
                     res.json({});
                 }
