@@ -27,38 +27,23 @@ module.exports = function (app) {
             let challenge = req.body.challenge;
             res.json({"challenge":challenge});
         } else {
-            // console.log(req.body);
-            if (req.body.event.files) {
-                console.log("....................................................");
-                // console.log(req.body.event.files[0]);
-                axios.get(`https://slack.com/api/files.info?file=${req.body.event.files[0].id}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                })
-                    .then(response => {
-                        console.log(response.data);
-                        // setTimeout(() => {
-                        //     console.log(response.data.file.url_private);
-                        //     axios.get(`${response.data.file.url_private}`)
-                        //         .then(result => {
-                        //             console.log("******************************");
-                        //             console.log(result);
-                        //             // let data = Buffer.from(res.data, 'binary').toString('base64');
-                        //             // console.log(`data: ${data}`);
-                        //             res.json();
-                        //         })
-                        //         .catch(error => {
-                        //             console.log(error);
-                        //         });
-                        // }, 5000);
-                        
-                    })
-                    .catch(error => {
-                        console.log(error);
-                    });
-                console.log("++++++++++++++++++++++++++++++++++++++++")
-            }
+            console.log(req.body);
+            // if (req.body.event.files) {
+            //     console.log("....................................................");
+            //     // console.log(req.body.event.files[0]);
+            //     axios.get(`https://slack.com/api/files.info?file=${req.body.event.files[0].id}`, {
+            //         headers: {
+            //             'Authorization': `Bearer ${token}`
+            //         }
+            //     })
+            //         .then(response => {
+            //             console.log(response.data.plain_text);
+            //         })
+            //         .catch(error => {
+            //             console.log(error);
+            //         });
+            //     console.log("++++++++++++++++++++++++++++++++++++++++")
+            // }
             
             // sendMessage(web, 'test');
         }
