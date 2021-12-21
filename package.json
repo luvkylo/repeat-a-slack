@@ -1,34 +1,6 @@
 {
-  "name": "frequency-data-analyze",
-  "version": "3.4.1",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Frequency.Inc",
-  "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.599.0",
-    "axios": "^0.19.2",
-    "axios-retry": "^3.1.8",
-    "change-case": "^4.1.1",
-    "cli-progress": "^3.6.0",
-    "count-lines-in-file": "^1.1.0",
-    "dotenv": "^8.2.0",
-    "fast-csv": "^4.3.1",
-    "geoip-lite": "^1.4.2",
-    "gmail-send": "^1.8.10",
-    "merge-files": "^0.1.2",
-    "node-redshift": "^0.1.5",
-    "split-file": "^2.2.0"
-  },
-  "devDependencies": {
-    "eslint": "^6.8.0",
-    "eslint-config-prettier": "^6.9.0",
-    "eslint-plugin-prettier": "^3.1.2",
-    "eslint-config-airbnb-base": "^14.0.0",
-    "eslint-plugin-import": "^2.19.1",
-    "prettier": "^1.19.1"
+    "express": "^4.17.2",
+    "path": "^0.12.7"
   }
 }
