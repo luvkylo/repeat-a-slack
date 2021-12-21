@@ -9,7 +9,7 @@ function sendMessage(client, msg) {
                 text: msg,
                 channel: '#alerts-playout',
             });
-        }, 300000);
+        }, 1000);
     } catch (error) {
         console.log(error.code);
         console.log(error.data);
