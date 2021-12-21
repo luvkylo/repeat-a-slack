@@ -3,7 +3,7 @@ require('dotenv').config();
 const axios = require('axios');
 const { WebClient, ErrorCode } = require('@slack/web-api');
 
-let InAlarm = ['Linear-76-Pattrn-ML-FillMs'];
+let InAlarm = [];
 
 function sendMessage(client, msg) {
     try {
