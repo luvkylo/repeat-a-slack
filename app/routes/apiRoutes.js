@@ -28,7 +28,9 @@ module.exports = function (app) {
         } else {
             console.log(req.body);
             if (req.body.event.files) {
+                console.log("....................................................");
                 console.log(req.body.event.files[0]);
+                console.log("....................................................")
             }
             
             sendMessage(web, 'test');
