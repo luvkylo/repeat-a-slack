@@ -76,14 +76,16 @@ module.exports = function (app) {
                                     time = time.groups.timestamp
                                 }
 
-                                InAlarm.push(name);
-                                console.log(InAlarm);
+                                if (!InAlarm.includes(name)) {
+                                    InAlarm.push(name);
+                                    console.log(InAlarm);
 
-                                let msg = `ALARM from Repeat An Alert bot for Channel ${found}\nname: ${name}\ntime: ${time}\nlink to original issue: ${original_link}`;
+                                    let msg = `ALARM from Repeat An Alert bot for Channel ${found}\nname: ${name}\ntime: ${time}\nlink to original issue: ${original_link}`;
 
-                                console.log('Starting message');
+                                    console.log('Starting message');
 
-                                sendMessage(web, msg);
+                                    sendMessage(web, msg);
+                                }
                             } else if (response.data.file.plain_text.match(/entered the OK state/)) {
                                 let name = response.data.file.plain_text.match(/Name:\s+(?<name>.+)/);
                                 console.log(name.groups.name);
@@ -112,9 +114,39 @@ module.exports = function (app) {
                     console.log('Repeating an alert...');
                     res.json({});
                 } else {
-                    console.log(req.body);
-                    console.log('unrecognize request...');
-                    res.json({});
+                    if (req.body.event && req.body.event.type && req.body.event.type == 'reaction_added') {
+                        let channel = req.body.event.item.channel;
+                        let ts = req.body.event.item.ts;
+
+                        axios.get(`https://slack.com/api/reactions.get?channel=${channel}&timestamp=${ts}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        })
+                            .then(resp => {
+                                if (resp.body.message) {
+                                    let txt = resp.body.message.text;
+                                    let name = txt.match(/name:\s+(?<name>.+)/);
+                                    name = name.groups.name;
+                                    console.log("Got user reaction")
+                                    if (InAlarm.includes(name)) {
+                                        console.log('User reacted to remove the alarm');
+                                        removeItemOnce(InAlarm, name);
+                                        console.log(InAlarm);
+                                    }
+                                }
+                                res.json({});
+                            })
+                            .catch(error => {
+                                console.log(error);
+                                res.json({});
+                            });
+                    } else {
+                        console.log(req.body);
+                        console.log('unrecognize request...');
+                        res.json({});
+                    }
+                    
                 }
             }
             
