@@ -70,6 +70,7 @@ module.exports = function (app) {
                                 }
 
                                 InAlarm.push(name);
+                                console.log(InAlarm);
 
                                 let msg = 
                                 `
@@ -89,6 +90,7 @@ module.exports = function (app) {
                                 if (InAlarm.includes(name)) {
                                     console.log('Returning to normal');
                                     removeItemOnce(InAlarm, name);
+                                    console.log(InAlarm);
                                 }
                             }
                             // console.log(response.data.plain_text);
