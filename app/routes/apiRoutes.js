@@ -109,8 +109,8 @@ module.exports = function (app) {
                     });
             } else {
                 console.log(req.body);
-                if (req.body.text && req.body.text.includes('Repeat An Alert')) {
-                    let msg = req.body.text;
+                if (req.body.text && req.body.event && req.body.event.text && req.body.event.text.includes('Repeat An Alert')) {
+                    let msg = req.body.event.text;
                     sendMessage(web, msg);
                     console.log('Repeating an alert...');
                     res.json({});
