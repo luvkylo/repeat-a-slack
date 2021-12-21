@@ -79,13 +79,7 @@ module.exports = function (app) {
                                 InAlarm.push(name);
                                 console.log(InAlarm);
 
-                                let msg = 
-                                `
-                                ALARM from Repeat An Alert bot for Channel ${found}
-                                name: ${name}
-                                time: ${time}
-                                link to original issue: ${original_link}
-                                `;
+                                let msg = `ALARM from Repeat An Alert bot for Channel ${found}\nname: ${name}\ntime: ${time}\nlink to original issue: ${original_link}`;
 
                                 console.log('Starting message');
 
