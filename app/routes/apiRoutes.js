@@ -145,12 +145,12 @@ module.exports = function (app) {
                                         console.log(InAlarm);
                                         web.chat.postMessage({
                                             text: `Alarm removed for ${name}`,
-                                            channel: '#alerts-playout',
+                                            channel: `#${process.env.SLACK_CHANNEL}`,
                                         });
                                     } else {
                                         web.chat.postMessage({
                                             text: `Alarm already removed for ${name}`,
-                                            channel: '#alerts-playout',
+                                            channel: `#${process.env.SLACK_CHANNEL}`,
                                         });
                                     }
                                 }
