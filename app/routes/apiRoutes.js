@@ -13,7 +13,7 @@ function sendMessage(client, msg) {
             console.log(name.groups.name);
             name = name.groups.name;
             completedAlarm.push(name);
-            if (InAlarm.includes(name)) {
+            if (InAlarm.includes(name) && name.includes('TechDiff')) {
                 client.chat.postMessage({
                     text: msg,
                     channel: `#${process.env.SLACK_CHANNEL}`,
@@ -139,7 +139,7 @@ module.exports = function (app) {
                                     let name = txt.match(/name:\s+(?<name>.+)/);
                                     name = name.groups.name;
                                     console.log("Got user reaction")
-                                    if (InAlarm.includes(name)) {
+                                    if (InAlarm.includes(name) && name.includes('TechDiff')) {
                                         console.log('User reacted to remove the alarm');
                                         removeItemOnce(InAlarm, name);
                                         console.log(InAlarm);
