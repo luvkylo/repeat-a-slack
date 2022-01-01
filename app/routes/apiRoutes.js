@@ -139,7 +139,7 @@ module.exports = function (app) {
                                     let name = txt.match(/name:\s+(?<name>.+)/);
                                     name = name.groups.name;
                                     console.log("Got user reaction")
-                                    if (InAlarm.includes(name) && name.includes('TechDiff')) {
+                                    if (InAlarm.includes(name) && name.includes('Tech')) {
                                         console.log('User reacted to remove the alarm');
                                         removeItemOnce(InAlarm, name);
                                         console.log(InAlarm);
