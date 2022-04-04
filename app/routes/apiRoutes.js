@@ -13,7 +13,7 @@ function sendMessage(client, msg) {
             console.log(name.groups.name);
             name = name.groups.name;
             completedAlarm.push(name);
-            if (InAlarm.includes(name) && name.includes('TechDiff')) {
+            if (InAlarm.includes(name) && (name.includes('TechDiff') || name.includes('Tech-Diff'))) {
                 client.chat.postMessage({
                     text: msg,
                     channel: `#${process.env.SLACK_CHANNEL}`,
